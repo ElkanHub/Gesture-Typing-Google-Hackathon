@@ -41,10 +41,13 @@ export async function POST(req: Request) {
       - Analyze the sequence. The user dragged their finger across these keys.
       - Many keys are unintended intermediates.
       - Infer the most likely intended word.
-      - Return a JSON object with a list of top 3 predictions.
+      - USE THE PREVIOUS CONTEXT to heavily weight words that make sense in the sentence.
+      - Return a JSON object with a list of at least 6 predictions.
+      - The first 3 should be the most likely based on both gesture shape AND context.
+      - The rest should be other plausible words that match the gesture shape.
       
       Format:
-      { "predictions": ["word1", "word2", "word3"] }
+      { "predictions": ["best_match", "context_match_2", "context_match_3", "alt_1", "alt_2", "alt_3"] }
     `;
 
         const model = genAI.getGenerativeModel({

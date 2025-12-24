@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { PatternStore } from '@/lib/pattern-store';
 import { getVisualCandidates } from '@/lib/candidate-filter';
+import { COMMON_WORDS } from '@/lib/dictionary';
 import { Point, KeyMap, GestureMode } from '@/lib/types';
 
 // Points, GestureMode, KeyMap moved to lib/types.ts
@@ -244,7 +245,20 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             setLastGestureSequence(sequence);
             setPendingWord(localMatch);
             setTrajectory([]);
+            setGhostWord(null);
+            setGhostTrajectory([]);
+            return;
+        }
 
+        // Anchor Match (NEW): Check if anchors spell a valid word
+        const anchorWord = anchors.join('');
+        if (anchorWord.length >= 3 && COMMON_WORDS.includes(anchorWord)) {
+            console.log("Anchor Match Found:", anchorWord);
+            setPredictions([anchorWord, "(Anchor Match)"]);
+            setCommittedText(prev => prev + (prev ? ' ' : '') + anchorWord);
+            setLastGestureSequence(sequence);
+            setPendingWord(anchorWord);
+            setTrajectory([]);
             setGhostWord(null);
             setGhostTrajectory([]);
             return;

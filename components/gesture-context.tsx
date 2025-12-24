@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { PatternStore } from '@/lib/pattern-store';
+import { getVisualCandidates } from '@/lib/candidate-filter';
 
 // --- Types ---
 
@@ -106,7 +107,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         // 1. Group by Key and calculate Dwell Time (Consolidate contiguous keys)
         const grouped: { key: string; startTime: number; endTime: number; count: number; x: number; y: number }[] = [];
 
-        // Handle first point
         let currentGroup = {
             key: path[0].key || '',
             startTime: path[0].time,
@@ -122,7 +122,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             if (key === currentGroup.key) {
                 currentGroup.endTime = p.time;
                 currentGroup.count++;
-                // Update position to latest (or could average)
                 currentGroup.x = p.x;
                 currentGroup.y = p.y;
             } else {
@@ -133,19 +132,15 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         grouped.push(currentGroup);
 
         // 2. Identify Dwell Anchors
-        // Calculate durations
         const durations = grouped.map(g => g.endTime - g.startTime);
-        // Calculate average duration of a key pause
         const avgDuration = durations.reduce((a, b) => a + b, 0) / (durations.length || 1);
 
-        // Identify keys where dwell is significantly higher (e.g., > 1.3x average)
-        // Adjust threshold based on feel. 
         const dwellAnchors = grouped.filter((g, i) => {
             const duration = durations[i];
             return duration > (avgDuration * 1.3);
         }).map(g => g.key);
 
-        // 3. Identify Inflection Points (Direction Changes)
+        // 3. Identify Inflection Points
         const inflectionAnchors: string[] = [];
         if (grouped.length > 2) {
             for (let i = 1; i < grouped.length - 1; i++) {
@@ -153,35 +148,27 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 const curr = grouped[i];
                 const next = grouped[i + 1];
 
-                // Vector 1: Prev -> Curr
                 const dx1 = curr.x - prev.x;
                 const dy1 = curr.y - prev.y;
-
-                // Vector 2: Curr -> Next
                 const dx2 = next.x - curr.x;
                 const dy2 = next.y - curr.y;
 
-                // Calculate angle difference
                 const angle1 = Math.atan2(dy1, dx1);
                 const angle2 = Math.atan2(dy2, dx2);
                 let diff = Math.abs(angle1 - angle2);
-                if (diff > Math.PI) diff = 2 * Math.PI - diff; // Normalize to 0..PI
+                if (diff > Math.PI) diff = 2 * Math.PI - diff;
 
-                // Convert to degrees
                 const degrees = diff * (180 / Math.PI);
-
-                // If sharp turn (> 45 degrees), mark as inflection point
                 if (degrees > 45) {
                     inflectionAnchors.push(curr.key);
                 }
             }
         }
 
-        // 4. Constants: Start and End
+        // 4. Constants
         const startKey = grouped[0].key;
         const endKey = grouped[grouped.length - 1].key;
 
-        // Combine all anchors (deduped)
         const anchors = Array.from(new Set([
             startKey,
             ...dwellAnchors,
@@ -189,7 +176,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             endKey
         ]));
 
-        // Filter empty keys
         const cleanAnchors = anchors.filter(k => k);
         const sequence = grouped.map(g => g.key).filter(k => k).join('');
 
@@ -199,7 +185,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const processGesture = async () => {
         const path = trajectoryRef.current;
 
-        // Literal Typing for Short Paths (e.g. single taps)
         if (path.length > 0 && path.length < 4) {
             // @ts-ignore
             const literalText = path.map(p => p.originalKey || p.key).join('');
@@ -217,20 +202,20 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         console.log("Anchors Identified:", anchors);
 
         // 1. Check Pattern Store
-        // We use the simplified sequence for fast lookup
         const localMatch = PatternStore.getMatch(sequence);
         if (localMatch) {
             console.log("Local Pattern Fit Found:", localMatch);
             setPredictions([localMatch, "(Local Pattern)"]);
             setCommittedText(prev => prev + (prev ? ' ' : '') + localMatch);
-
-            // Set pending verification
             setLastGestureSequence(sequence);
             setPendingWord(localMatch);
-
             setTrajectory([]);
-            return; // SKIP API
+            return;
         }
+
+        // 2. Candidate Filtering
+        const candidates = getVisualCandidates(path, anchors);
+        console.log("Filtered Candidates:", candidates);
 
         try {
             const response = await fetch('/api/predict', {
@@ -238,7 +223,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     trajectory: path,
-                    anchors, // NEW: Sending anchors to API
+                    anchors,
+                    candidates, // NEW
                     keyMap,
                     context: committedText
                 })

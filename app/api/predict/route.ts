@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
     try {
-        const { trajectory, anchors, context } = await req.json();
+        const { trajectory, anchors, candidates, context } = await req.json();
 
         if (!trajectory || trajectory.length === 0) {
             return NextResponse.json({ predictions: [] });
@@ -15,27 +15,33 @@ export async function POST(req: Request) {
             .map((p: any) => p.key)
             .join('');
 
-        // Use Pre-calculated anchors from the client "Local Refining Layer" (Dwell/Inflection)
+        // Use Pre-calculated anchors from the Client
         const anchorInfo = anchors && anchors.length > 0
             ? `High Confidence Keys (Start, Pauses, Turns, End): ${anchors.join(' - ')}`
             : `Start Key: ${trajectory[0].key}, End Key: ${trajectory[trajectory.length - 1].key}`;
+
+        // NEW: Use Candidates from Client Filtering
+        let candidateInfo = "";
+        if (candidates && candidates.length > 0) {
+            candidateInfo = `\nPhysically Valid Word Candidates (Based on keys): [${candidates.join(', ')}]`;
+        }
 
         const prompt = `
       You are a specialized gesture typing decoding engine for physical keyboards.
       
       User Input (Noisy Key Sequence): "${keySequence}"
       ${anchorInfo}
+      ${candidateInfo}
       Previous Text Context: "${context || ''}"
       
       Task:
-      - The user dragged their finger across these keys.
-      - The "High Confidence Keys" represent dwell points (pauses) or inflection points (turns). These keys MUST be present in the target word, roughly in that order.
-      - Keys between anchors are likely noise, but can provide hints.
-      - Infer the most likely intended word.
-      - USE THE PREVIOUS CONTEXT to heavily weight words that make sense in the sentence.
-      - Return a JSON object with a list of at least 6 predictions.
-      - The first 3 should be the most likely based on both gesture shape AND context.
-      - The rest should be other plausible words that match the gesture shape.
+      - The user dragged their finger across the keys.
+      - "Physically Valid Candidates" are words that strictly match the gesture's start/end points and shape.
+      - YOUR PRIMARY GOAL is to choose the best word from the "Physically Valid Candidates" list that fits the "Previous Text Context".
+      - If none of the candidates fit well, or if the list is empty, infer the most likely intended word from the key sequence and anchors.
+      - USE THE CONTEXT to disambiguate (e.g., "I went to" -> "their" vs "there").
+      - Return a JSON object with at least 6 predictions.
+      - The first 3 should be high-probability matches (prefer candidates that fit context).
       
       Format:
       { "predictions": ["best_match", "context_match_2", "context_match_3", "alt_1", "alt_2", "alt_3"] }

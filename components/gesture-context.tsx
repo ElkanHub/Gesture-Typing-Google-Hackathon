@@ -9,7 +9,8 @@ export type Point = {
     x: number;
     y: number;
     time: number;
-    key?: string; // Closest key if known, mainly for debugging/training
+    key?: string;
+    originalKey?: string;
 };
 
 export type GestureMode = 'VALIDATION' | 'TYPING' | 'DRAWING';
@@ -101,12 +102,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const handleValidationPress = (key: string) => {
-        // This is handled by the visual keyboard component calling registerKeyPosition
-        // when it detects a press on the correct key.
-        // However, we need to know WHICH key is expected.
-    };
-
     const getSimplifiedSequence = (path: Point[]) => {
         // Basic deduping: h-h-e-e-l-l-o -> helo
         // This is the sequence we use for pattern matching
@@ -125,11 +120,17 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
     const processGesture = async () => {
         const path = trajectoryRef.current;
-        if (path.length < 5) {
-            // Too short, probably just a tap
+
+        // Literal Typing for Short Paths (e.g. single taps)
+        if (path.length > 0 && path.length < 4) {
+            // @ts-ignore
+            const literalText = path.map(p => p.originalKey || p.key).join('');
+            setCommittedText(prev => prev + literalText);
             setTrajectory([]);
             return;
         }
+
+        if (path.length === 0) return;
 
         const sequence = getSimplifiedSequence(path);
         console.log("Processing Gesture:", sequence);
@@ -165,12 +166,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const data = await response.json();
             if (data.predictions && data.predictions.length > 0) {
                 setPredictions(data.predictions);
-                // Auto-commit top prediction? The prompt says "First candidate is auto-selected"
-                // But usually "auto-selected" means it's inserted but can be changed.
-                // For now, let's just show them.
-                // Actually prompt says: "The top-ranked word is automatically inserted into the typing area"
-
-                // Let's implement auto-insert of top candidate + space
                 const topWord = data.predictions[0];
                 setCommittedText(prev => prev + (prev ? ' ' : '') + topWord);
 
@@ -190,6 +185,20 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
+            const originalKey = e.key;
+
+            // Handle Spacebar Explicitly
+            if (e.key === ' ') {
+                setCommittedText(prev => prev + ' ');
+                // Confirm pending word if any
+                if (lastGestureSequence && pendingWord) {
+                    PatternStore.learnPattern(lastGestureSequence, pendingWord);
+                    setLastGestureSequence(null);
+                    setPendingWord(null);
+                }
+                setTrajectory([]);
+                return;
+            }
 
             // Ignore functional keys
             if (e.key.length > 1 && e.key !== 'Backspace') return;
@@ -198,6 +207,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 setCommittedText(prev => prev.slice(0, -1));
                 setLastGestureSequence(null); // Cancel learning on edit
                 setPendingWord(null);
+                setTrajectory([]);
                 return;
             }
 
@@ -209,10 +219,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
             if (mode === 'TYPING' && isCalibrated) {
                 // IMPLICIT CONFIRMATION LOGIC
-                // If we were waiting to see if user accepted the last word, and they start typing a new gesture...
-                // Then we confirm it!
-                // Note: We use a small check: Is this the START of a new gesture?
-                // We can check if trajectory is empty (it should be 0 here since we just started fresh).
                 if (trajectory.length === 0 && lastGestureSequence && pendingWord) {
                     console.log("Implicitly confirming:", pendingWord);
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
@@ -226,7 +232,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                         x: coords.x,
                         y: coords.y,
                         time: Date.now(),
-                        key
+                        key,
+                        originalKey
                     };
 
                     setTrajectory(prev => [...prev, point]);
@@ -236,6 +243,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                     timerRef.current = setTimeout(() => {
                         processGesture();
                     }, 400); // 400ms pause = end of gesture
+                } else {
+                    // Fallback for unmapped keys (e.g. symbols, punctuation not in map)
+                    if (e.key.length === 1) {
+                        setCommittedText(prev => prev + originalKey);
+                    }
                 }
             }
         };
@@ -256,7 +268,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord]); // Added dependencies
+    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord]);
 
 
     const validationTarget = !isCalibrated && mode === 'VALIDATION'
@@ -265,15 +277,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
     const selectPrediction = (word: string) => {
         // Explicit correction!
-        // 1. Update text (Fix the last inserted word)
-        // Assuming the last inserted word was the 'pendingWord', we replace it.
-
         if (pendingWord && committedText.endsWith(pendingWord)) {
             // Replace last occurrence
             const newText = committedText.slice(0, -pendingWord.length) + word;
             setCommittedText(newText);
         } else {
-            // Fallback just append (shouldn't happen often in this flow)
             setCommittedText(prev => prev + ' ' + word);
         }
 

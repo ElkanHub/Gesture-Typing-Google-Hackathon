@@ -3,25 +3,13 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { PatternStore } from '@/lib/pattern-store';
 import { getVisualCandidates } from '@/lib/candidate-filter';
+import { Point, KeyMap, GestureMode } from '@/lib/types';
 
-// --- Types ---
-
-export type Point = {
-    x: number;
-    y: number;
-    time: number;
-    key?: string;
-    originalKey?: string;
-};
-
-export type GestureMode = 'VALIDATION' | 'TYPING' | 'DRAWING';
-
-export interface KeyMap {
-    [key: string]: { x: number; y: number; width: number; height: number };
-}
+// Points, GestureMode, KeyMap moved to lib/types.ts
 
 export interface GestureContextType {
     mode: GestureMode;
+    // ... rest same
     setMode: (mode: GestureMode) => void;
     keyMap: KeyMap;
 
@@ -250,7 +238,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        const candidates = getVisualCandidates(path, anchors);
+        const candidates = getVisualCandidates(path, anchors, keyMap);
         console.log("Filtered Candidates:", candidates);
 
         try {

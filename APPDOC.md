@@ -1,5 +1,6 @@
 # APPDOC: Physical Gesture Typing Engine
-
+.
+.
 ## 1. Overview
 This application is a **web-based prototype for "Headless" Gesture Typing on Physical Keyboards**. Unlike traditional touchscreen keyboards, this system allows users to "swipe" on a physical keyboard (using a capacitive touch layer or simply rapid key-over-swiping). The engine interprets the noisy stream of keystrokes to deduce the intended word, combining geometric analysis, local pattern recognition, and Large Language Model (LLM) inference.
 

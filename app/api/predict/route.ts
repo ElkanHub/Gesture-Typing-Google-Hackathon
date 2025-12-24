@@ -16,9 +16,12 @@ export async function POST(req: Request) {
             .join('');
 
         // Use Pre-calculated anchors from the Client
+        const startKey = trajectory[0].key;
+        const endKey = trajectory[trajectory.length - 1].key;
+
         const anchorInfo = anchors && anchors.length > 0
             ? `High Confidence Keys (Start, Pauses, Turns, End): ${anchors.join(' - ')}`
-            : `Start Key: ${trajectory[0].key}, End Key: ${trajectory[trajectory.length - 1].key}`;
+            : `Start Key: ${startKey}, End Key: ${endKey}`;
 
         // NEW: Use Candidates from Client Filtering
         let candidateInfo = "";
@@ -34,11 +37,16 @@ export async function POST(req: Request) {
       ${candidateInfo}
       Previous Text Context: "${context || ''}"
       
+      CRITICAL HARD CONSTRAINTS:
+      1. The predicted word MUST start with the key '${startKey}'.
+      2. The predicted word MUST end with the key '${endKey}'.
+      3. Do NOT predict words that violate these start/end constraints.
+      
       Task:
       - The user dragged their finger across the keys.
       - "Physically Valid Candidates" are words that strictly match the gesture's start/end points and shape.
       - YOUR PRIMARY GOAL is to choose the best word from the "Physically Valid Candidates" list that fits the "Previous Text Context".
-      - If none of the candidates fit well, or if the list is empty, infer the most likely intended word from the key sequence and anchors.
+      - If none of the candidates fit well, or if the list is empty, infer the most likely intended word from the key sequence and anchors, WHILE OBEYING THE HARD CONSTRAINTS.
       - USE THE CONTEXT to disambiguate (e.g., "I went to" -> "their" vs "there").
       - Return a JSON object with at least 6 predictions.
       - The first 3 should be high-probability matches (prefer candidates that fit context).

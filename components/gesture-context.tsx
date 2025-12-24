@@ -79,7 +79,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     // --- Logic ---
 
     const registerKeyPosition = (char: string, rect: DOMRect) => {
-        // Center point
         const x = rect.left + rect.width / 2;
         const y = rect.top + rect.height / 2;
 
@@ -88,7 +87,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             [char.toLowerCase()]: { x, y, width: rect.width, height: rect.height }
         }));
 
-        // Advance validation
         if (char.toLowerCase() === VALIDATION_SEQUENCE[validationIndex]) {
             const nextIndex = validationIndex + 1;
             if (nextIndex >= VALIDATION_SEQUENCE.length) {
@@ -102,20 +100,100 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const getSimplifiedSequence = (path: Point[]) => {
-        // Basic deduping: h-h-e-e-l-l-o -> helo
-        // This is the sequence we use for pattern matching
-        if (!path.length) return "";
-        const keys = path.map(p => p.key || '').filter(k => k);
-        let seq = "";
-        let last = "";
-        for (const k of keys) {
-            if (k !== last) {
-                seq += k;
-                last = k;
+    const analyzeTrajectory = (path: Point[]) => {
+        if (!path.length) return { sequence: "", anchors: [] as string[] };
+
+        // 1. Group by Key and calculate Dwell Time (Consolidate contiguous keys)
+        const grouped: { key: string; startTime: number; endTime: number; count: number; x: number; y: number }[] = [];
+
+        // Handle first point
+        let currentGroup = {
+            key: path[0].key || '',
+            startTime: path[0].time,
+            endTime: path[0].time,
+            count: 1,
+            x: path[0].x,
+            y: path[0].y
+        };
+
+        for (let i = 1; i < path.length; i++) {
+            const p = path[i];
+            const key = p.key || '';
+            if (key === currentGroup.key) {
+                currentGroup.endTime = p.time;
+                currentGroup.count++;
+                // Update position to latest (or could average)
+                currentGroup.x = p.x;
+                currentGroup.y = p.y;
+            } else {
+                grouped.push(currentGroup);
+                currentGroup = { key, startTime: p.time, endTime: p.time, count: 1, x: p.x, y: p.y };
             }
         }
-        return seq;
+        grouped.push(currentGroup);
+
+        // 2. Identify Dwell Anchors
+        // Calculate durations
+        const durations = grouped.map(g => g.endTime - g.startTime);
+        // Calculate average duration of a key pause
+        const avgDuration = durations.reduce((a, b) => a + b, 0) / (durations.length || 1);
+
+        // Identify keys where dwell is significantly higher (e.g., > 1.3x average)
+        // Adjust threshold based on feel. 
+        const dwellAnchors = grouped.filter((g, i) => {
+            const duration = durations[i];
+            return duration > (avgDuration * 1.3);
+        }).map(g => g.key);
+
+        // 3. Identify Inflection Points (Direction Changes)
+        const inflectionAnchors: string[] = [];
+        if (grouped.length > 2) {
+            for (let i = 1; i < grouped.length - 1; i++) {
+                const prev = grouped[i - 1];
+                const curr = grouped[i];
+                const next = grouped[i + 1];
+
+                // Vector 1: Prev -> Curr
+                const dx1 = curr.x - prev.x;
+                const dy1 = curr.y - prev.y;
+
+                // Vector 2: Curr -> Next
+                const dx2 = next.x - curr.x;
+                const dy2 = next.y - curr.y;
+
+                // Calculate angle difference
+                const angle1 = Math.atan2(dy1, dx1);
+                const angle2 = Math.atan2(dy2, dx2);
+                let diff = Math.abs(angle1 - angle2);
+                if (diff > Math.PI) diff = 2 * Math.PI - diff; // Normalize to 0..PI
+
+                // Convert to degrees
+                const degrees = diff * (180 / Math.PI);
+
+                // If sharp turn (> 45 degrees), mark as inflection point
+                if (degrees > 45) {
+                    inflectionAnchors.push(curr.key);
+                }
+            }
+        }
+
+        // 4. Constants: Start and End
+        const startKey = grouped[0].key;
+        const endKey = grouped[grouped.length - 1].key;
+
+        // Combine all anchors (deduped)
+        const anchors = Array.from(new Set([
+            startKey,
+            ...dwellAnchors,
+            ...inflectionAnchors,
+            endKey
+        ]));
+
+        // Filter empty keys
+        const cleanAnchors = anchors.filter(k => k);
+        const sequence = grouped.map(g => g.key).filter(k => k).join('');
+
+        return { sequence, anchors: cleanAnchors };
     };
 
     const processGesture = async () => {
@@ -132,10 +210,14 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
         if (path.length === 0) return;
 
-        const sequence = getSimplifiedSequence(path);
+        // Perform Analysis
+        const { sequence, anchors } = analyzeTrajectory(path);
+
         console.log("Processing Gesture:", sequence);
+        console.log("Anchors Identified:", anchors);
 
         // 1. Check Pattern Store
+        // We use the simplified sequence for fast lookup
         const localMatch = PatternStore.getMatch(sequence);
         if (localMatch) {
             console.log("Local Pattern Fit Found:", localMatch);
@@ -150,14 +232,13 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             return; // SKIP API
         }
 
-        console.log("Processing Gesture:", path.length, "points");
-
         try {
             const response = await fetch('/api/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     trajectory: path,
+                    anchors, // NEW: Sending anchors to API
                     keyMap,
                     context: committedText
                 })
@@ -176,7 +257,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         } catch (e) {
             console.error("Prediction failed:", e);
         } finally {
-            // Clear trajectory after processing
             setTrajectory([]);
         }
     };
@@ -187,10 +267,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const key = e.key.toLowerCase();
             const originalKey = e.key;
 
-            // Handle Spacebar Explicitly
             if (e.key === ' ') {
                 setCommittedText(prev => prev + ' ');
-                // Confirm pending word if any
                 if (lastGestureSequence && pendingWord) {
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
                     setLastGestureSequence(null);
@@ -200,12 +278,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            // Ignore functional keys
             if (e.key.length > 1 && e.key !== 'Backspace') return;
 
             if (e.key === 'Backspace') {
                 setCommittedText(prev => prev.slice(0, -1));
-                setLastGestureSequence(null); // Cancel learning on edit
+                setLastGestureSequence(null);
                 setPendingWord(null);
                 setTrajectory([]);
                 return;
@@ -218,7 +295,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             });
 
             if (mode === 'TYPING' && isCalibrated) {
-                // IMPLICIT CONFIRMATION LOGIC
                 if (trajectory.length === 0 && lastGestureSequence && pendingWord) {
                     console.log("Implicitly confirming:", pendingWord);
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
@@ -238,13 +314,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
                     setTrajectory(prev => [...prev, point]);
 
-                    // Debounce / Segmentation Logic
                     if (timerRef.current) clearTimeout(timerRef.current);
                     timerRef.current = setTimeout(() => {
                         processGesture();
-                    }, 400); // 400ms pause = end of gesture
+                    }, 400);
                 } else {
-                    // Fallback for unmapped keys (e.g. symbols, punctuation not in map)
                     if (e.key.length === 1) {
                         setCommittedText(prev => prev + originalKey);
                     }
@@ -276,22 +350,18 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         : null;
 
     const selectPrediction = (word: string) => {
-        // Explicit correction!
         if (pendingWord && committedText.endsWith(pendingWord)) {
-            // Replace last occurrence
             const newText = committedText.slice(0, -pendingWord.length) + word;
             setCommittedText(newText);
         } else {
             setCommittedText(prev => prev + ' ' + word);
         }
 
-        // 2. Learn the CORRECTION
         if (lastGestureSequence) {
             console.log("Explicitly learning correction:", word);
             PatternStore.learnPattern(lastGestureSequence, word);
         }
 
-        // 3. Reset
         setLastGestureSequence(null);
         setPendingWord(null);
     };

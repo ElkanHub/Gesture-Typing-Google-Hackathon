@@ -3,6 +3,7 @@ import { PredictionBar } from "@/components/ui/prediction-bar";
 import { Keyboard } from "@/components/ui/keyboard";
 import { GestureProvider } from "@/components/gesture-context";
 import { AppDocModal } from "@/components/app-doc-modal";
+import { InsightPanel } from "@/components/ui/insight-panel";
 import fs from 'fs';
 import path from 'path';
 
@@ -20,25 +21,37 @@ export default async function Home() {
   const docContent = await getDocContent();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-12 bg-gray-100">
+    <main className="flex min-h-screen flex-col items-center p-8 bg-gray-100">
 
       {/* App Documentation Viewer */}
       <AppDocModal content={docContent} />
 
       <GestureProvider>
-        <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
+        {/* Header */}
+        <div className="z-10 w-full max-w-7xl items-center justify-between font-mono text-sm lg:flex border-b border-gray-300 bg-white pb-6 pt-8 backdrop-blur-2xl lg:static lg:rounded-xl lg:border lg:bg-white lg:p-4 shadow-sm mb-8">
+          <p className="flex w-full justify-center lg:justify-start font-bold text-gray-700">
             Headless Gesture Typing Prototype
           </p>
         </div>
 
-        <div className="w-full max-w-5xl mt-12 flex flex-col gap-6">
-          <TypingArea />
+        <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl">
 
-          <div className="flex flex-col gap-4">
-            <PredictionBar />
-            <Keyboard />
+          {/* Left Column: Typing Interface */}
+          <div className="flex-grow flex flex-col gap-6">
+            <TypingArea />
+            <div className="flex flex-col gap-4">
+              <PredictionBar />
+              <Keyboard />
+            </div>
           </div>
+
+          {/* Right Column: Insight Panel */}
+          <div className="hidden lg:block shrink-0">
+            <div className="sticky top-8">
+              <InsightPanel />
+            </div>
+          </div>
+
         </div>
       </GestureProvider>
 

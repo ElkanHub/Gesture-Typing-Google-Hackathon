@@ -31,6 +31,13 @@ export interface GestureContextType {
     // Actions
     selectPrediction: (word: string) => void;
     clearText: () => void;
+
+    // Debugging
+    debugState: {
+        lastSequence: string | null;
+        anchors: string[];
+        rawPath: Point[];
+    };
 }
 
 const GestureContext = createContext<GestureContextType | undefined>(undefined);
@@ -64,6 +71,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     // Ghost Path State (NEW)
     const [ghostWord, setGhostWord] = useState<string | null>(null);
     const [ghostTrajectory, setGhostTrajectory] = useState<Point[]>([]);
+
+    // Debug State
+    const [debugAnchors, setDebugAnchors] = useState<string[]>([]);
 
     // Ref for trajectory to avoid closure staleness in timeout
     const trajectoryRef = useRef<Point[]>([]);
@@ -223,6 +233,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
         console.log("Processing Gesture:", sequence);
         console.log("Anchors Identified:", anchors);
+
+        setDebugAnchors(anchors);
 
         const localMatch = PatternStore.getMatch(sequence);
         if (localMatch) {
@@ -424,7 +436,12 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             ghostWord,
             ghostTrajectory,
             selectPrediction,
-            clearText
+            clearText,
+            debugState: {
+                lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
+                anchors: debugAnchors,
+                rawPath: trajectory
+            }
         }}>
             {children}
         </GestureContext.Provider>

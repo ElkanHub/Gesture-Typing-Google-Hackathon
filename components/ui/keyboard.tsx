@@ -1,6 +1,7 @@
 "use client";
 
-import { useGesture, Point } from "@/components/gesture-context";
+import { useGesture } from "@/components/gesture-context";
+import { Point } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 

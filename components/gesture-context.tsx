@@ -89,26 +89,35 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     // --- Logic ---
 
     const registerKeyPosition = (char: string, rect: DOMRect) => {
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
+        setKeyMap(prev => {
+            // Optimization: Don't update if nothing changed (avoids render loops)
+            const existing = prev[char.toLowerCase()];
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
 
-        setKeyMap(prev => ({
-            ...prev,
-            [char.toLowerCase()]: { x, y, width: rect.width, height: rect.height }
-        }));
-
-        if (char.toLowerCase() === VALIDATION_SEQUENCE[validationIndex]) {
-            const nextIndex = validationIndex + 1;
-            if (nextIndex >= VALIDATION_SEQUENCE.length) {
-                setValidationIndex(0);
-                setIsCalibrated(true);
-                setMode('TYPING');
-                console.log("Calibration Complete:", keyMap);
-            } else {
-                setValidationIndex(nextIndex);
+            if (existing && existing.x === x && existing.y === y && existing.width === rect.width && existing.height === rect.height) {
+                return prev;
             }
-        }
+
+            return {
+                ...prev,
+                [char.toLowerCase()]: { x, y, width: rect.width, height: rect.height }
+            };
+        });
     };
+
+    // Auto-Calibrate when map is full
+    useEffect(() => {
+        if (isCalibrated) return;
+        const registeredCount = Object.keys(keyMap).length;
+        // Basic check: If we have > 26 keys (A-Z), we assume map is ready.
+        if (registeredCount >= 26) {
+            console.log("Calibration Complete (Auto):", registeredCount, "keys");
+            setIsCalibrated(true);
+            setMode('TYPING');
+            setValidationIndex(0);
+        }
+    }, [keyMap, isCalibrated]);
 
     const generateGhostPath = (word: string): Point[] => {
         if (!word) return [];
@@ -236,8 +245,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             setPendingWord(localMatch);
             setTrajectory([]);
 
-            // Note: We don't have next-word prediction for local patterns yet.
-            // Could add simple statistical model later?
             setGhostWord(null);
             setGhostTrajectory([]);
             return;
@@ -268,7 +275,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 setLastGestureSequence(sequence);
                 setPendingWord(topWord);
 
-                // NEW: Handle Ghost Path
+                // Handle Ghost Path
                 if (data.next_word) {
                     console.log("Ghost Word Predicted:", data.next_word);
                     setGhostWord(data.next_word);
@@ -294,11 +301,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             // Handle TAB for Ghost Path
             if (e.key === 'Tab') {
                 if (ghostWord) {
-                    e.preventDefault(); // Prevent focus change
+                    e.preventDefault();
                     setCommittedText(prev => prev + ' ' + ghostWord);
 
-                    // Clear ghost path for now. 
-                    // In a real advanced system, we would chain the next prediction!
                     setGhostWord(null);
                     setGhostTrajectory([]);
                     return;
@@ -420,6 +425,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         <GestureContext.Provider value={{
             mode,
             setMode,
+            keyMap,
             validationTarget,
             registerKeyPosition,
             isCalibrated,
@@ -430,7 +436,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             ghostWord,
             ghostTrajectory,
             selectPrediction,
-            keyMap,
             clearText
         }}>
             {children}

@@ -23,6 +23,7 @@ export interface KeyMap {
 export interface GestureContextType {
     mode: GestureMode;
     setMode: (mode: GestureMode) => void;
+    keyMap: KeyMap;
 
     // Validation
     validationTarget: string | null;
@@ -34,6 +35,10 @@ export interface GestureContextType {
     trajectory: Point[];
     committedText: string;
     predictions: string[];
+
+    // Ghost Path State (NEW)
+    ghostWord: string | null;
+    ghostTrajectory: Point[];
 
     // Actions
     selectPrediction: (word: string) => void;
@@ -68,6 +73,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const [lastGestureSequence, setLastGestureSequence] = useState<string | null>(null);
     const [pendingWord, setPendingWord] = useState<string | null>(null);
 
+    // Ghost Path State (NEW)
+    const [ghostWord, setGhostWord] = useState<string | null>(null);
+    const [ghostTrajectory, setGhostTrajectory] = useState<Point[]>([]);
+
     // Ref for trajectory to avoid closure staleness in timeout
     const trajectoryRef = useRef<Point[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -101,10 +110,29 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const generateGhostPath = (word: string): Point[] => {
+        if (!word) return [];
+        const path: Point[] = [];
+        const now = Date.now();
+
+        for (let i = 0; i < word.length; i++) {
+            const char = word[i].toLowerCase();
+            const keyInfo = keyMap[char];
+            if (keyInfo) {
+                path.push({
+                    x: keyInfo.x,
+                    y: keyInfo.y,
+                    time: now + (i * 50),
+                    key: char
+                });
+            }
+        }
+        return path;
+    };
+
     const analyzeTrajectory = (path: Point[]) => {
         if (!path.length) return { sequence: "", anchors: [] as string[] };
 
-        // 1. Group by Key and calculate Dwell Time (Consolidate contiguous keys)
         const grouped: { key: string; startTime: number; endTime: number; count: number; x: number; y: number }[] = [];
 
         let currentGroup = {
@@ -131,7 +159,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         }
         grouped.push(currentGroup);
 
-        // 2. Identify Dwell Anchors
         const durations = grouped.map(g => g.endTime - g.startTime);
         const avgDuration = durations.reduce((a, b) => a + b, 0) / (durations.length || 1);
 
@@ -140,7 +167,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             return duration > (avgDuration * 1.3);
         }).map(g => g.key);
 
-        // 3. Identify Inflection Points
         const inflectionAnchors: string[] = [];
         if (grouped.length > 2) {
             for (let i = 1; i < grouped.length - 1; i++) {
@@ -165,7 +191,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             }
         }
 
-        // 4. Constants
         const startKey = grouped[0].key;
         const endKey = grouped[grouped.length - 1].key;
 
@@ -190,18 +215,18 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const literalText = path.map(p => p.originalKey || p.key).join('');
             setCommittedText(prev => prev + literalText);
             setTrajectory([]);
+            setGhostWord(null);
+            setGhostTrajectory([]);
             return;
         }
 
         if (path.length === 0) return;
 
-        // Perform Analysis
         const { sequence, anchors } = analyzeTrajectory(path);
 
         console.log("Processing Gesture:", sequence);
         console.log("Anchors Identified:", anchors);
 
-        // 1. Check Pattern Store
         const localMatch = PatternStore.getMatch(sequence);
         if (localMatch) {
             console.log("Local Pattern Fit Found:", localMatch);
@@ -210,10 +235,14 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             setLastGestureSequence(sequence);
             setPendingWord(localMatch);
             setTrajectory([]);
+
+            // Note: We don't have next-word prediction for local patterns yet.
+            // Could add simple statistical model later?
+            setGhostWord(null);
+            setGhostTrajectory([]);
             return;
         }
 
-        // 2. Candidate Filtering
         const candidates = getVisualCandidates(path, anchors);
         console.log("Filtered Candidates:", candidates);
 
@@ -224,7 +253,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 body: JSON.stringify({
                     trajectory: path,
                     anchors,
-                    candidates, // NEW
+                    candidates,
                     keyMap,
                     context: committedText
                 })
@@ -236,9 +265,18 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 const topWord = data.predictions[0];
                 setCommittedText(prev => prev + (prev ? ' ' : '') + topWord);
 
-                // Track for potential learning
                 setLastGestureSequence(sequence);
                 setPendingWord(topWord);
+
+                // NEW: Handle Ghost Path
+                if (data.next_word) {
+                    console.log("Ghost Word Predicted:", data.next_word);
+                    setGhostWord(data.next_word);
+                    setGhostTrajectory(generateGhostPath(data.next_word));
+                } else {
+                    setGhostWord(null);
+                    setGhostTrajectory([]);
+                }
             }
         } catch (e) {
             console.error("Prediction failed:", e);
@@ -253,6 +291,20 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const key = e.key.toLowerCase();
             const originalKey = e.key;
 
+            // Handle TAB for Ghost Path
+            if (e.key === 'Tab') {
+                if (ghostWord) {
+                    e.preventDefault(); // Prevent focus change
+                    setCommittedText(prev => prev + ' ' + ghostWord);
+
+                    // Clear ghost path for now. 
+                    // In a real advanced system, we would chain the next prediction!
+                    setGhostWord(null);
+                    setGhostTrajectory([]);
+                    return;
+                }
+            }
+
             if (e.key === ' ') {
                 setCommittedText(prev => prev + ' ');
                 if (lastGestureSequence && pendingWord) {
@@ -261,6 +313,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                     setPendingWord(null);
                 }
                 setTrajectory([]);
+                setGhostWord(null);
+                setGhostTrajectory([]);
                 return;
             }
 
@@ -271,6 +325,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 setLastGestureSequence(null);
                 setPendingWord(null);
                 setTrajectory([]);
+                setGhostWord(null);
+                setGhostTrajectory([]);
                 return;
             }
 
@@ -328,7 +384,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord]);
+    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord]);
 
 
     const validationTarget = !isCalibrated && mode === 'VALIDATION'
@@ -356,6 +412,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         setCommittedText('');
         setLastGestureSequence(null);
         setPendingWord(null);
+        setGhostWord(null);
+        setGhostTrajectory([]);
     };
 
     return (
@@ -369,7 +427,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             trajectory,
             committedText,
             predictions,
+            ghostWord,
+            ghostTrajectory,
             selectPrediction,
+            keyMap,
             clearText
         }}>
             {children}

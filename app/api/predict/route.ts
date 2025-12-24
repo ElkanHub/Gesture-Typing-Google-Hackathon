@@ -50,9 +50,13 @@ export async function POST(req: Request) {
       - USE THE CONTEXT to disambiguate (e.g., "I went to" -> "their" vs "there").
       - Return a JSON object with at least 6 predictions.
       - The first 3 should be high-probability matches (prefer candidates that fit context).
+      - ALSO PREDICT THE SINGLE MOST LIKELY *NEXT* WORD (to follow your top prediction) based on common phrases or grammar.
       
       Format:
-      { "predictions": ["best_match", "context_match_2", "context_match_3", "alt_1", "alt_2", "alt_3"] }
+      { 
+        "predictions": ["best_match", "context_match_2", "context_match_3", "alt_1", "alt_2", "alt_3"],
+        "next_word": "likely_follow_up_word"
+      }
     `;
 
         const model = genAI.getGenerativeModel({

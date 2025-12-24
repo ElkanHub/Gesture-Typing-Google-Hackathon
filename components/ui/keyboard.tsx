@@ -1,108 +1,160 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import { useGesture, Point } from "@/components/gesture-context";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGesture } from '@/components/gesture-context';
-
-const ROWS = [
-  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-  ['z', 'x', 'c', 'v', 'b', 'n', 'm']
-];
 
 export function Keyboard() {
   const {
+    mode,
+    keyMap,
     validationTarget,
     activeKeys,
-    registerKeyPosition,
     trajectory,
-    mode
+    ghostTrajectory, // NEW: Access Ghost Trajectory
+    registerKeyPosition
   } = useGesture();
 
-  const keyRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
 
-  // Check for validation press
   useEffect(() => {
-    if (validationTarget && activeKeys.has(validationTarget)) {
-      const el = keyRefs.current[validationTarget];
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        registerKeyPosition(validationTarget, rect);
-      }
+    if (containerRef.current) {
+      setContainerRect(containerRef.current.getBoundingClientRect());
     }
-  }, [activeKeys, validationTarget, registerKeyPosition]);
+  }, []);
+
+  const keys = [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+  ];
+
+  // Map trajectory to SVG path data (relative to client?)
+  // Trajectory points are X/Y client coordinates from rect.left/rect.top
+  // SVG is absolute overlay.
+  // We need to ensure the SVG coordinate system matches.
+  // If we assume SVG fills the viewport, then client X/Y works directly.
+  // If SVG is inside `relative` container, we need to subtract container left/top.
+
+  const getPathD = (points: Point[]) => {
+    if (points.length < 2 || !containerRect) return "";
+
+    const offsetX = containerRect.left;
+    const offsetY = containerRect.top;
+
+    return points.reduce((acc, p, i) => {
+      // Adjust coordinates to be relative to the container
+      const x = p.x - offsetX;
+      const y = p.y - offsetY;
+      return i === 0 ? `M ${x},${y}` : `${acc} L ${x},${y}`;
+    }, "");
+  };
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto p-4 bg-gray-100 dark:bg-gray-800 rounded-xl shadow-lg select-none">
+    <div ref={containerRef} className="relative w-full max-w-5xl mx-auto border rounded-xl p-4 bg-gray-50 shadow-lg select-none">
+
+      {/* Visual Trajectory Overlay */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-50 overflow-visible">
+        {/* Ghost Path (Bottom Layer) */}
+        {containerRect && ghostTrajectory.length > 1 && (
+          <path
+            d={getPathD(ghostTrajectory)}
+            fill="none"
+            stroke="#00E5FF" // Cyan / Neon Blue
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeOpacity="0.4"
+            className="drop-shadow-[0_0_10px_rgba(0,229,255,0.8)] transition-all duration-300 ease-in-out"
+          />
+        )}
+
+        {/* Active Path (Top Layer) */}
+        {containerRect && trajectory.length > 1 && (
+          <path
+            d={getPathD(trajectory)}
+            fill="none"
+            stroke="#FF4500" // Red-Orange
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeOpacity="0.7"
+          />
+        )}
+      </svg>
+
       <div className="flex flex-col gap-2 relative z-10">
-        {ROWS.map((row, rowIndex) => (
+        {keys.map((row, rowIndex) => (
           <div key={rowIndex} className="flex justify-center gap-2">
             {row.map((char) => {
               const isActive = activeKeys.has(char);
               const isTarget = validationTarget === char;
+              const isMapped = !!keyMap[char];
 
               return (
-                <div
+                <Key
                   key={char}
-                  ref={(el) => { keyRefs.current[char] = el; }}
-                  className={`
-                    w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center rounded-lg font-bold uppercase transition-all duration-75
-                    ${isActive
-                      ? 'bg-blue-500 text-white scale-95 shadow-inner'
-                      : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm border-b-2 border-gray-300 dark:border-gray-900'}
-                    ${isTarget ? 'ring-4 ring-yellow-400 animate-pulse bg-yellow-100 dark:bg-yellow-900' : ''}
-                  `}
-                >
-                  {char}
-                </div>
+                  char={char}
+                  isActive={isActive}
+                  isTarget={isTarget}
+                  isMapped={isMapped}
+                  onRegister={(rect) => registerKeyPosition(char, rect)}
+                />
               );
             })}
           </div>
         ))}
+        {/* Spacebar Row */}
+        <div className="flex justify-center mt-2">
+          <div className={`
+                h-12 w-64 rounded-lg flex items-center justify-center border font-bold bg-white shadow-sm transition-all duration-100
+                ${activeKeys.has(' ') ? 'bg-blue-100 scale-95 border-blue-400' : 'border-gray-200'}
+            `}>
+            Space
+          </div>
+        </div>
       </div>
 
-      {/* Spacebar Row (Visual only, disabled) */}
-      <div className="flex justify-center mt-2 opacity-50">
-        <div className="w-1/2 h-12 bg-gray-300 dark:bg-gray-600 rounded-lg"></div>
+      {/* Legend / Status */}
+      <div className="mt-4 text-xs text-center text-gray-400">
+        Status: {mode} ({activeKeys.size} keys active)
+        {ghostTrajectory.length > 0 && <span className="text-cyan-500 ml-2 font-bold animate-pulse"> • Ghost Guide Active (Press Tab)</span>}
       </div>
-
-      {/* Gesture Path Overlay - Full Screen Fixed to map correctly to screen coords */}
-      {/* Note: We map keys by screen coords, so our SVG points should match. */}
-      <GoalOverlay trajectory={trajectory} />
     </div>
   );
 }
 
-function GoalOverlay({ trajectory }: { trajectory: any[] }) {
-  if (trajectory.length < 2) return null;
+function Key({ char, isActive, isTarget, isMapped, onRegister }: {
+  char: string,
+  isActive: boolean,
+  isTarget: boolean,
+  isMapped: boolean,
+  onRegister: (rect: DOMRect) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Convert trajectory points to path string
-  // Points are absolute screen coordinates {x, y}
-  // We need to render them in a fixed overlay
-
-  // We'll create a coordinate string: "M x1 y1 L x2 y2 ..."
-  const d = trajectory.reduce((acc, point, i) => {
-    return acc + `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y} `;
-  }, '');
+  // Register position only once or on resize (simplification: just once for now)
+  useEffect(() => {
+    if (ref.current) {
+      onRegister(ref.current.getBoundingClientRect());
+    }
+  }, []);
 
   return (
-    <svg className="fixed inset-0 pointer-events-none z-50 w-full h-full">
-      <motion.path
-        d={d}
-        fill="none"
-        stroke="rgba(59, 130, 246, 0.6)" // Blue with opacity
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 0.1 }}
-      />
-      {/* Draw dots at vertices for debug effect */}
-      {trajectory.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2" fill="red" />
-      ))}
-    </svg>
+    <div
+      ref={ref}
+      className={`
+                w-12 h-12 rounded-lg flex items-center justify-center uppercase font-bold text-lg border transition-all duration-75 relative
+                ${isActive ? 'bg-blue-500 text-white scale-95 shadow-inner' : 'bg-white text-gray-700 shadow-sm hover:bg-gray-50'}
+                ${isTarget ? 'ring-4 ring-green-400 ring-opacity-50 animate-pulse bg-green-50 border-green-400' : 'border-gray-200'}
+                ${!isMapped && !isTarget ? 'opacity-80' : ''}
+            `}
+    >
+      {char}
+      {/* Debug Dot */}
+      {isMapped && <div className="absolute top-1 right-1 w-1 h-1 bg-green-300 rounded-full" />}
+    </div>
   );
 }

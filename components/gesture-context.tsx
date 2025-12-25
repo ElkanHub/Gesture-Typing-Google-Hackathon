@@ -4,7 +4,8 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { PatternStore } from '@/lib/pattern-store';
 import { getVisualCandidates } from '@/lib/candidate-filter';
 import { COMMON_WORDS } from '@/lib/dictionary';
-import { Point, KeyMap, GestureMode } from '@/lib/types';
+import { Point, KeyMap, GestureMode, Shape } from '@/lib/types';
+import { analyzeShape } from '@/lib/shape-logic';
 
 // Points, GestureMode, KeyMap moved to lib/types.ts
 
@@ -43,6 +44,11 @@ export interface GestureContextType {
     // Autocomplete (NEW)
     predictedCompletion: string | null;
     acceptCompletion: () => void;
+
+    // Drawing (NEW)
+    shapes: Shape[];
+    addShape: (shape: Shape) => void;
+    clearCanvas: () => void;
 }
 
 const GestureContext = createContext<GestureContextType | undefined>(undefined);
@@ -79,6 +85,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
     // Debug State
     const [debugAnchors, setDebugAnchors] = useState<string[]>([]);
+
+    // Drawing State (NEW)
+    const [shapes, setShapes] = useState<Shape[]>([]);
+    const addShape = (shape: Shape) => setShapes(prev => [...prev, shape]);
+    const clearCanvas = () => setShapes([]);
 
     // Autocomplete State
     const [predictedCompletion, setPredictedCompletion] = useState<string | null>(null);
@@ -163,7 +174,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         if (registeredCount >= 26) {
             console.log("Calibration Complete (Auto):", registeredCount, "keys");
             setIsCalibrated(true);
-            setMode('TYPING');
+            // Only switch to TYPING if we are currently in VALIDATION (don't overwrite DRAWING)
+            setMode(prev => prev === 'VALIDATION' ? 'TYPING' : prev);
             setValidationIndex(0);
         }
     }, [keyMap, isCalibrated]);
@@ -302,6 +314,68 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
+        setDebugAnchors(anchors); // Ensure debug updates
+
+        if (mode === 'DRAWING') {
+            const shapeData = analyzeShape(path);
+            if (shapeData) {
+                console.log("Recognized Shape:", shapeData.type);
+
+                // Calculate Keyboard Bounds for Normalization
+                const keys = Object.values(keyMap);
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+                if (keys.length > 0) {
+                    keys.forEach(k => {
+                        const left = k.x - k.width / 2;
+                        const right = k.x + k.width / 2;
+                        const top = k.y - k.height / 2;
+                        const bottom = k.y + k.height / 2;
+
+                        if (left < minX) minX = left;
+                        if (right > maxX) maxX = right;
+                        if (top < minY) minY = top;
+                        if (bottom > maxY) maxY = bottom;
+                    });
+
+                    const kbWidth = maxX - minX;
+                    const kbHeight = maxY - minY;
+
+                    // Avoid division by zero
+                    const safeW = kbWidth || 1;
+                    const safeH = kbHeight || 1;
+
+                    const newShape: Shape = {
+                        id: Date.now().toString(),
+                        type: shapeData.type as any,
+                        // Normalize 0-1 relative to keyboard area
+                        x: (shapeData.centerX - minX) / safeW,
+                        y: (shapeData.centerY - minY) / safeH,
+                        width: shapeData.width / safeW,
+                        height: shapeData.height / safeH,
+                        color: '#000000'
+                    };
+                    setShapes(prev => [...prev, newShape]);
+                } else {
+                    console.warn("No keys in KeyMap! Using shape bounds for normalization (Fallback)");
+                    // Fallback: Normalize relative to itself (center it) or screen? 
+                    // Let's just put it in the center.
+                    const newShape: Shape = {
+                        id: Date.now().toString(),
+                        type: shapeData.type as any, // Cast for safely
+                        x: 0.5,
+                        y: 0.5,
+                        width: 0.2, // Default size
+                        height: 0.2,
+                        color: '#000000'
+                    };
+                    setShapes(prev => [...prev, newShape]);
+                }
+            }
+            setTrajectory([]);
+            return;
+        }
+
         const localMatch = PatternStore.getMatch(sequence);
         if (localMatch) {
             console.log("Local Pattern Fit Found:", localMatch);
@@ -429,7 +503,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 return newSet;
             });
 
-            if (mode === 'TYPING' && isCalibrated) {
+            if ((mode === 'TYPING' || mode === 'DRAWING') && isCalibrated) {
                 if (trajectory.length === 0 && lastGestureSequence && pendingWord) {
                     console.log("Implicitly confirming:", pendingWord);
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
@@ -531,7 +605,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 rawPath: trajectory
             },
             predictedCompletion,
-            acceptCompletion
+            acceptCompletion,
+            shapes,
+            addShape,
+            clearCanvas
         }}>
             {children}
         </GestureContext.Provider>

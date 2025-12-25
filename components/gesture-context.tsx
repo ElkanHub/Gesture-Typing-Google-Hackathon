@@ -48,6 +48,8 @@ export interface GestureContextType {
     // Drawing (NEW)
     shapes: Shape[];
     addShape: (shape: Shape) => void;
+    updateShape: (id: string, updates: Partial<Shape>) => void;
+    removeShape: (id: string) => void;
     clearCanvas: () => void;
 }
 
@@ -89,6 +91,12 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     // Drawing State (NEW)
     const [shapes, setShapes] = useState<Shape[]>([]);
     const addShape = (shape: Shape) => setShapes(prev => [...prev, shape]);
+    const updateShape = (id: string, updates: Partial<Shape>) => {
+        setShapes(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    };
+    const removeShape = (id: string) => {
+        setShapes(prev => prev.filter(s => s.id !== id));
+    };
     const clearCanvas = () => setShapes([]);
 
     // Autocomplete State
@@ -608,6 +616,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             acceptCompletion,
             shapes,
             addShape,
+            updateShape,
+            removeShape,
             clearCanvas
         }}>
             {children}

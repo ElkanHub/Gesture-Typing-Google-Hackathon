@@ -25,7 +25,7 @@ export function TypingArea() {
                 {committedText || <span className="text-gray-400 italic">Gesture typing output will appear here...</span>}
                 {predictedCompletion && (
                     <span className="text-gray-400 opacity-60 bg-clip-text animate-pulse">
-                        {predictedCompletion} <span className="text-xs align-super bg-gray-100 dark:bg-zinc-800 rounded px-1 border border-gray-300 dark:border-zinc-700 not-italic">ENTER</span>
+                        {predictedCompletion} <span className="text-xs align-super bg-gray-100 dark:bg-zinc-800 rounded px-1 border border-gray-300 dark:border-zinc-700 not-italic">ENTER / TAB</span>
                     </span>
                 )}
                 <div ref={endRef} />

@@ -364,14 +364,26 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const key = e.key.toLowerCase();
             const originalKey = e.key;
 
-            // Handle TAB for Ghost Path
+            // Handle TAB: Ghost Word -> Autocomplete Step
             if (e.key === 'Tab') {
                 if (ghostWord) {
                     e.preventDefault();
                     setCommittedText(prev => prev + ' ' + ghostWord);
-
                     setGhostWord(null);
                     setGhostTrajectory([]);
+                    return;
+                }
+
+                if (predictedCompletion) {
+                    e.preventDefault();
+                    // Regex to find next word (including preceding whitespace)
+                    const match = predictedCompletion.match(/^(\s*\S+)([\s\S]*)/);
+                    if (match) {
+                        const nextWord = match[1];
+                        const remainder = match[2];
+                        setCommittedText(prev => prev + nextWord);
+                        setPredictedCompletion(remainder || null);
+                    }
                     return;
                 }
             }

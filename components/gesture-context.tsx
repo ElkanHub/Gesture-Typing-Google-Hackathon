@@ -237,19 +237,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
         setDebugAnchors(anchors);
 
-        const localMatch = PatternStore.getMatch(sequence);
-        if (localMatch) {
-            console.log("Local Pattern Fit Found:", localMatch);
-            setPredictions([localMatch, "(Local Pattern)"]);
-            setCommittedText(prev => prev + (prev ? ' ' : '') + localMatch);
-            setLastGestureSequence(sequence);
-            setPendingWord(localMatch);
-            setTrajectory([]);
-            setGhostWord(null);
-            setGhostTrajectory([]);
-            return;
-        }
-
         // Anchor Match (NEW): Check if anchors spell a valid word
         const anchorWord = anchors.join('');
         if (anchorWord.length >= 3 && COMMON_WORDS.includes(anchorWord)) {
@@ -261,6 +248,21 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             setTrajectory([]);
             setGhostWord(null);
             setGhostTrajectory([]);
+            setDebugAnchors(anchors); // Ensure debug updates
+            return;
+        }
+
+        const localMatch = PatternStore.getMatch(sequence);
+        if (localMatch) {
+            console.log("Local Pattern Fit Found:", localMatch);
+            setPredictions([localMatch, "(Local Pattern)"]);
+            setCommittedText(prev => prev + (prev ? ' ' : '') + localMatch);
+            setLastGestureSequence(sequence);
+            setPendingWord(localMatch);
+            setTrajectory([]);
+            setGhostWord(null);
+            setGhostTrajectory([]);
+            setDebugAnchors(anchors); // Ensure debug updates
             return;
         }
 

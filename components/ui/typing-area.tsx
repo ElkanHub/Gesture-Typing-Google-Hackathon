@@ -7,10 +7,10 @@ export function TypingArea() {
     const { committedText, clearText } = useGesture();
     const endRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to end
-    useEffect(() => {
-        endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [committedText]);
+    // Auto-scroll removed per user request
+    // useEffect(() => {
+    //    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // }, [committedText]);
 
     return (
         <div className="flex flex-col gap-2 w-full">

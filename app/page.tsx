@@ -6,6 +6,9 @@ import { AppDocModal } from "@/components/app-doc-modal";
 import { InsightPanel } from "@/components/ui/insight-panel";
 import fs from 'fs';
 import path from 'path';
+import Link from "next/link";
+
+import { QuickStartModal } from "@/components/quick-start-modal";
 
 async function getDocContent() {
   try {
@@ -31,6 +34,19 @@ export default async function Home() {
         <p className="flex w-full justify-center lg:justify-start font-bold text-gray-700">
           Headless Gesture Typing Prototype
         </p>
+
+        {/* Quick Start Modal (Button included) */}
+        <div className="w-full lg:w-auto px-4 my-4 lg:my-0">
+          <QuickStartModal />
+        </div>
+
+        <div className="flex w-full justify-center lg:justify-end font-bold text-gray-700">
+          <Link href="/draw" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+            <button>
+              Draw with your Keyboard
+            </button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl">

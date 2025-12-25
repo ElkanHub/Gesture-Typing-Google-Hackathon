@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { useGesture } from '@/components/gesture-context';
 
 export function TypingArea() {
-    const { committedText, clearText } = useGesture();
+    const { committedText, clearText, predictedCompletion } = useGesture();
     const endRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll removed per user request
@@ -23,6 +23,11 @@ export function TypingArea() {
                 className="w-full bg-white dark:bg-black p-6 text-2xl font-mono focus:outline-none min-h-[150px] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-y-auto max-h-[300px]"
             >
                 {committedText || <span className="text-gray-400 italic">Gesture typing output will appear here...</span>}
+                {predictedCompletion && (
+                    <span className="text-gray-400 opacity-60 bg-clip-text animate-pulse">
+                        {predictedCompletion} <span className="text-xs align-super bg-gray-100 dark:bg-zinc-800 rounded px-1 border border-gray-300 dark:border-zinc-700 not-italic">ENTER</span>
+                    </span>
+                )}
                 <div ref={endRef} />
             </div>
         </div>

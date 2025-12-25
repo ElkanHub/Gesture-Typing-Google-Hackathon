@@ -39,6 +39,10 @@ export interface GestureContextType {
         anchors: string[];
         rawPath: Point[];
     };
+
+    // Autocomplete (NEW)
+    predictedCompletion: string | null;
+    acceptCompletion: () => void;
 }
 
 const GestureContext = createContext<GestureContextType | undefined>(undefined);
@@ -75,6 +79,52 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
     // Debug State
     const [debugAnchors, setDebugAnchors] = useState<string[]>([]);
+
+    // Autocomplete State
+    const [predictedCompletion, setPredictedCompletion] = useState<string | null>(null);
+    const autocompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Fetch Autocomplete when text changes
+    useEffect(() => {
+        if (!committedText || committedText.length < 5) {
+            setPredictedCompletion(null);
+            return;
+        }
+
+        // Debounce 
+        if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+
+        autocompleteTimerRef.current = setTimeout(async () => {
+            // Basic heuristic: Don't predict if we are in middle of word (trailing space check?)
+            // Actually, context is context.
+            try {
+                const res = await fetch('/api/autocomplete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ context: committedText })
+                });
+                const data = await res.json();
+                if (data.completion) {
+                    setPredictedCompletion(data.completion);
+                } else {
+                    setPredictedCompletion(null);
+                }
+            } catch (e) {
+                console.error("Autocomplete failed", e);
+            }
+        }, 1000); // Wait 1s linear idle before predicting sentence
+
+        return () => {
+            if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+        }
+    }, [committedText]);
+
+    const acceptCompletion = () => {
+        if (predictedCompletion) {
+            setCommittedText(prev => prev + predictedCompletion);
+            setPredictedCompletion(null);
+        }
+    };
 
     // Ref for trajectory to avoid closure staleness in timeout
     const trajectoryRef = useRef<Point[]>([]);
@@ -326,6 +376,16 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
 
+            // Handle ENTER for Autocomplete
+            if (e.key === 'Enter') {
+                if (predictedCompletion) {
+                    e.preventDefault();
+                    setCommittedText(prev => prev + predictedCompletion);
+                    setPredictedCompletion(null);
+                    return;
+                }
+            }
+
             if (e.key === ' ') {
                 setCommittedText(prev => prev + ' ');
                 if (lastGestureSequence && pendingWord) {
@@ -405,7 +465,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord]);
+    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord, predictedCompletion]);
 
 
     const validationTarget = !isCalibrated && mode === 'VALIDATION'
@@ -457,7 +517,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
                 anchors: debugAnchors,
                 rawPath: trajectory
-            }
+            },
+            predictedCompletion,
+            acceptCompletion
         }}>
             {children}
         </GestureContext.Provider>

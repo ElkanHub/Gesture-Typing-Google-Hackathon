@@ -25,7 +25,7 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
     const rotation = shape.rotation || 0;
 
     // Interaction State
-    const [interaction, setInteraction] = useState<'none' | 'rotating' | 'resizing'>('none');
+    const [interaction, setInteraction] = useState<'none' | 'rotating' | 'resizing-xy' | 'resizing-x' | 'resizing-y'>('none');
     const startPosRef = useRef({ x: 0, y: 0, w: 0, h: 0, r: 0 });
 
     const handleDragStart: DraggableEventHandler = (e) => {
@@ -52,9 +52,9 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
     };
 
     // --- Resize Logic ---
-    const startResize = (e: React.MouseEvent | React.TouchEvent) => {
+    const startResize = (mode: 'xy' | 'x' | 'y') => (e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation();
-        setInteraction('resizing');
+        setInteraction(mode === 'xy' ? 'resizing-xy' : mode === 'x' ? 'resizing-x' : 'resizing-y');
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         startPosRef.current = { x: clientX, y: clientY, w: width, h: height, r: 0 };
@@ -69,11 +69,6 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
             const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
             if (interaction === 'rotating') {
-                // Calculate angle relative to center
-                // We need center in client coordinates. 
-                // Simplification for prototype: check Delta X
-                // Better: Atan2
-
                 if (nodeRef.current) {
                     const rect = nodeRef.current.getBoundingClientRect();
                     const centerX = rect.left + rect.width / 2;
@@ -81,18 +76,23 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
 
                     const angleRad = Math.atan2(clientY - centerY, clientX - centerX);
                     let angleDeg = angleRad * (180 / Math.PI);
-                    // Offset: handle is at top (-90deg relative to center?)
-                    // Actually handle is at -top. 
                     angleDeg += 90;
 
                     onChange({ rotation: angleDeg });
                 }
-            } else if (interaction === 'resizing') {
+            } else if (interaction.startsWith('resizing')) {
                 const dx = clientX - startPosRef.current.x;
-                // proportional resize or simple width add?
-                // Let's do simple width add for now
-                const newWidth = Math.max(20, startPosRef.current.w + dx);
-                const newHeight = Math.max(20, startPosRef.current.h + dx); // Keep aspect ratio
+                const dy = clientY - startPosRef.current.y;
+
+                let newWidth = startPosRef.current.w;
+                let newHeight = startPosRef.current.h;
+
+                if (interaction.includes('x') || interaction.includes('xy')) {
+                    newWidth = Math.max(20, startPosRef.current.w + dx);
+                }
+                if (interaction.includes('y') || interaction.includes('xy')) {
+                    newHeight = Math.max(20, startPosRef.current.h + dy);
+                }
 
                 onChange({
                     width: newWidth / scale,
@@ -135,7 +135,7 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
                 style={{
                     width: width,
                     height: height,
-                    // transform: `rotate(${rotation}deg)`, // Conflict!
+                    // transform: `rotate(${rotation}deg)`,
                     // transformOrigin: 'center center'
                     // position handled by Draggable
                 }}
@@ -182,13 +182,31 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
                                     <RotateCw size={12} className="text-gray-600" />
                                 </div>
 
-                                {/* Resize Handle (Bottom-Right) */}
+                                {/* Resize Handle (Corner: Both) */}
                                 <div
-                                    onMouseDown={startResize}
-                                    onTouchStart={startResize}
+                                    onMouseDown={startResize('xy')}
+                                    onTouchStart={startResize('xy')}
                                     className="absolute -bottom-3 -right-3 w-6 h-6 bg-white border border-gray-300 rounded-full shadow cursor-nwse-resize flex items-center justify-center hover:bg-blue-50"
                                 >
                                     <Maximize2 size={12} className="text-gray-600 rotate-90" />
+                                </div>
+
+                                {/* Resize Handle (Right: Width) */}
+                                <div
+                                    onMouseDown={startResize('x')}
+                                    onTouchStart={startResize('x')}
+                                    className="absolute top-1/2 -right-3 -translate-y-1/2 w-4 h-8 bg-white border border-gray-300 rounded shadow cursor-ew-resize flex items-center justify-center hover:bg-blue-50"
+                                >
+                                    <div className="w-0.5 h-4 bg-gray-300"></div>
+                                </div>
+
+                                {/* Resize Handle (Bottom: Height) */}
+                                <div
+                                    onMouseDown={startResize('y')}
+                                    onTouchStart={startResize('y')}
+                                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-8 h-4 bg-white border border-gray-300 rounded shadow cursor-ns-resize flex items-center justify-center hover:bg-blue-50"
+                                >
+                                    <div className="h-0.5 w-4 bg-gray-300"></div>
                                 </div>
 
                                 {/* Delete Button (Top-Right) */}

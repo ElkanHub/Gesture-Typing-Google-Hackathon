@@ -356,9 +356,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                     const newShape: Shape = {
                         id: Date.now().toString(),
                         type: shapeData.type as any,
-                        // Normalize 0-1 relative to keyboard area
-                        x: (shapeData.centerX - minX) / safeW,
-                        y: (shapeData.centerY - minY) / safeH,
+                        // Force center (0.5) to ensure visibility as per user request
+                        x: 0.5,
+                        y: 0.5,
                         width: shapeData.width / safeW,
                         height: shapeData.height / safeH,
                         color: '#000000'

@@ -20,8 +20,9 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
     // Denormalize coordinates
     const left = shape.x * scale;
     const top = shape.y * scale;
-    const width = shape.width * scale;
-    const height = shape.height * scale;
+    // Enforce minimums to ensure visibility (especially for lines)
+    const width = Math.max(20, shape.width * scale);
+    const height = Math.max(20, shape.height * scale);
     const rotation = shape.rotation || 0;
 
     // Interaction State

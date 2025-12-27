@@ -340,7 +340,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         if (path.length > 0 && path.length < 4) {
             // @ts-ignore
             const literalText = path.map(p => p.originalKey || p.key).join('');
-            setCommittedText(prev => prev + literalText);
+            
+            // Insert literal text into focus target
+            insertTextIntoActiveElement(literalText);
+            
             setTrajectory([]);
             setGhostWord(null);
             setGhostTrajectory([]);
@@ -577,6 +580,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
                 const coords = keyMap[key];
                 if (coords) {
+                    // Prevent native character insertion to avoid double-typing (raw + predicted)
+                    e.preventDefault();
+
                     const point: Point = {
                         x: coords.x,
                         y: coords.y,

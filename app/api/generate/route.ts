@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -21,94 +22,81 @@ export async function POST(req: Request) {
             );
         }
 
-        // --- Initialize Gemini ---
-        const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const googleAI = new GoogleGenAI({ apiKey });
 
-        // --- Extract base64 safely ---
         const base64Data = image.replace(
             /^data:image\/(png|jpeg|jpg|webp);base64,/,
             ""
         );
 
-        // --- Generate content ---
-        const result = await model.generateContent({
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        {
-                            text: `
-                            You are a digital master artist specializing in Hyper-Realistic Vector Art.
+        // First: Use Vision model to describe the sketch detailedly
+        // This is necessary because some Image models don't accept image inputs directly (sketch-to-image), or require specific formats.
+        // But let's try direct sketch-to-image with Imagen 4 if possible.
+        // However, usually "predict" models are Text-to-Image.
+        // Strategy: 
+        // 1. Describe sketch with Gemini 2.0 Flash.
+        // 2. Generate Image with Imagen 4.0 using the description.
 
-TASK:
-Transform the provided sketches/shapes into a PHOTOREALISTIC, FULL-SCENE illustration using SVG.
-The output must be indistinguishable from a high-quality flat vector illustration found on Dribbble or Behance.
+        console.log("Analyzing sketch with Gemini...");
+        const visionRes = await googleAI.models.generateContent({
+            model: "gemini-2.0-flash-exp",
+            contents: [{
+                role: "user",
+                parts: [
+                    { text: "Describe this sketch in extreme detail for a photorealistic image generator. Describe the subject, pose, composition, background, and lighting. Do not mention it is a sketch. Say 'A photograph of...'. Then suggest what the user is looking for by that composition and profidea photo realistic image. Not just a raw shapes" },
+                    { inlineData: { mimeType: "image/webp", data: base64Data } }
+                ]
+            }]
+        });
 
-CRITICAL STYLE INSTRUCTIONS:
-1. **NO OUTLINES/STROKES**: Do NOT use black strokes around shapes. Use filled shapes only. This is crucial for avoiding the "MS Paint" look.
-2. **COMPLEX GRADIENTS**: Use <linearGradient> and <radialGradient> extensively to create 3D volume, lighting, and shading.
-3. **DEPTH & ATMOSPHERE**: Use multiple layers with varying opacity to create atmospheric perspective (fog, depth of field).
-4. **TEXTURE**: Use SVG filters (like feTurbulence or feGaussianBlur) to add subtle texture and avoid "plastic" smoothness.
-5. **FULL COMPOSITION**: Identify the subject (e.g., dog) and place it in a COMPLETE detailed environment (bg, lighting, shadows).
+        const description = visionRes.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!description) throw new Error("Failed to interpret sketch");
 
-INTERPRETATION:
-- Interpret the input shapes as a rough block-out.
-- If it looks like a dog, draw a highly detailed, realistic dog.
-- Adjust the geometry to be anatomically/structurally correct while respecting the pose.
+        console.log("Sketch Description:", description);
 
-OUTPUT FORMAT:
-- Return ONLY the raw \`<svg>\` code.
-- The SVG must define a \`viewBox\`.
-- Use a high resolution viewBox (e.g., 0 0 1024 1024).
-- Do NOT wrap in markdown code blocks.
-                            `
-                        },
-                        {
-                            inlineData: {
-                                mimeType: "image/webp",
-                                data: base64Data
-                            }
-                        }
-                    ]
+        // Second: Generate Image with Imagen 4
+        // Note: Imagen 4.0 Fast on Generative Language API supports 'predict', not 'generateContent'.
+        console.log("Generating image with Imagen 4.0 via predict...");
+
+        const predictUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
+
+        const predictRes = await fetch(predictUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                instances: [
+                    { prompt: description }
+                ],
+                parameters: {
+                    sampleCount: 1
                 }
-            ]
+            })
         });
 
-        const response = result.response;
-        console.log("Gemini Response Candidates:", JSON.stringify(response.candidates, null, 2));
-
-        if (!response?.candidates || response.candidates.length === 0) {
-            throw new Error("No candidates returned by Gemini");
+        if (!predictRes.ok) {
+            const errText = await predictRes.text();
+            throw new Error(`Imagen predict failed (${predictRes.status}): ${errText}`);
         }
 
-        // --- Extract SVG Code ---
-        const candidate = response.candidates[0];
-        const textPart = candidate.content?.parts.find(p => p.text);
+        const predictData = await predictRes.json();
+        console.log("Imagen Predict Response Keys:", Object.keys(predictData));
 
-        if (!textPart || !textPart.text) {
-            throw new Error("No text content generated (SVG code missing)");
+        if (!predictData.predictions || predictData.predictions.length === 0) {
+            throw new Error("No predictions returned");
         }
 
-        let svgCode = textPart.text.trim();
+        const prediction = predictData.predictions[0];
+        // The format is typically { bytesBase64Encoded: "..." } or similar.
+        const b64 = prediction.bytesBase64Encoded || prediction.image?.bytesBase64Encoded || prediction;
 
-        // Clean Markdown if present
-        if (svgCode.startsWith("```")) {
-            svgCode = svgCode.replace(/^```(svg|xml)?/i, "").replace(/```$/, "").trim();
+        if (typeof b64 !== "string") {
+            console.error("Prediction structure:", JSON.stringify(prediction, null, 2));
+            throw new Error("Unexpected prediction format - could not find base64 string");
         }
 
-        // Basic verification
-        if (!svgCode.includes("<svg") || !svgCode.includes("</svg>")) {
-            throw new Error("Generated content is not a valid SVG");
-        }
+        const dataUrl = `data:image/png;base64,${b64}`;
 
-        // Encode to Data URL
-        const base64Svg = Buffer.from(svgCode).toString("base64");
-        const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
-
-        return NextResponse.json({
-            image: dataUrl
-        });
+        return NextResponse.json({ image: dataUrl });
 
     } catch (error: any) {
         console.error("Gemini Image Route Error:", error);

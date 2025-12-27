@@ -39,23 +39,29 @@ export async function POST(req: Request) {
                     parts: [
                         {
                             text: `
-                            You are a digital master artist specializing in Realism.
+                            You are a digital master artist specializing in Hyper-Realistic Vector Art.
 
 TASK:
-Transform the provided rough sketch into a FULLY REALIZED, RECTANGULAR illustration using SVG.
-The output must look like a complete picture, NOT just floating shapes.
+Transform the provided sketches/shapes into a PHOTOREALISTIC, FULL-SCENE illustration using SVG.
+The output must be indistinguishable from a high-quality flat vector illustration found on Dribbble or Behance.
 
-CRITICAL INSTRUCTIONS:
-1. **INTERPRETATION**: detailed scene based on the shapes (e.g., if it looks like a dog, draw a realistic dog in a park).
-2. **BACKGROUND**: You MUST fill the entire SVG 100% with a background scene (sky, ground, room, etc.). No transparent or white void.
-3. **STYLE**: "Realism" or "Design with Lighting". Use gradients, shadows, and filters to achieve depth.
-4. **COMPOSITION**: Respect the relative positions of the input shapes, but fully flesh them out into real objects.
+CRITICAL STYLE INSTRUCTIONS:
+1. **NO OUTLINES/STROKES**: Do NOT use black strokes around shapes. Use filled shapes only. This is crucial for avoiding the "MS Paint" look.
+2. **COMPLEX GRADIENTS**: Use <linearGradient> and <radialGradient> extensively to create 3D volume, lighting, and shading.
+3. **DEPTH & ATMOSPHERE**: Use multiple layers with varying opacity to create atmospheric perspective (fog, depth of field).
+4. **TEXTURE**: Use SVG filters (like feTurbulence or feGaussianBlur) to add subtle texture and avoid "plastic" smoothness.
+5. **FULL COMPOSITION**: Identify the subject (e.g., dog) and place it in a COMPLETE detailed environment (bg, lighting, shadows).
+
+INTERPRETATION:
+- Interpret the input shapes as a rough block-out.
+- If it looks like a dog, draw a highly detailed, realistic dog.
+- Adjust the geometry to be anatomically/structurally correct while respecting the pose.
 
 OUTPUT FORMAT:
 - Return ONLY the raw \`<svg>\` code.
 - The SVG must define a \`viewBox\`.
+- Use a high resolution viewBox (e.g., 0 0 1024 1024).
 - Do NOT wrap in markdown code blocks.
-- Do NOT add any conversational text.
                             `
                         },
                         {

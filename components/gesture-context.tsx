@@ -71,6 +71,30 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const [validationIndex, setValidationIndex] = useState(0);
     const [isCalibrated, setIsCalibrated] = useState(false);
 
+    // Persistence: Load Calibration
+    useEffect(() => {
+        const stored = localStorage.getItem('KEYBOARD_CALIBRATION');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if (Object.keys(parsed).length > 20) { // Basic sanity check
+                    setKeyMap(parsed);
+                    setIsCalibrated(true);
+                    setMode('TYPING');
+                }
+            } catch (e) {
+                console.error("Failed to load calibration", e);
+            }
+        }
+    }, []);
+
+    // Persistence: Save Calibration whenever it completes
+    useEffect(() => {
+        if (isCalibrated && Object.keys(keyMap).length > 0) {
+            localStorage.setItem('KEYBOARD_CALIBRATION', JSON.stringify(keyMap));
+        }
+    }, [isCalibrated, keyMap]);
+
     // Typing State
     const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
     const [trajectory, setTrajectory] = useState<Point[]>([]);

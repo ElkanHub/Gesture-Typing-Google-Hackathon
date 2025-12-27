@@ -13,6 +13,7 @@ export default function DrawPage() {
     const [generatedArt, setGeneratedArt] = useState<string | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
     const [status, setStatus] = useState<string>("");
+    const [userPrompt, setUserPrompt] = useState("");
 
     useEffect(() => {
         setMode('DRAWING');
@@ -38,7 +39,10 @@ export default function DrawPage() {
             const res = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: initImage })
+                body: JSON.stringify({
+                    image: initImage,
+                    userPrompt: userPrompt.trim()
+                })
             });
 
             if (!res.ok) throw new Error("Generation failed");
@@ -130,6 +134,19 @@ export default function DrawPage() {
                 <div className="flex flex-col gap-4">
                     <h2 className="text-xl font-semibold opacity-80">Your Sketch</h2>
                     <InteractiveCanvas ref={canvasRef} />
+                    <div className="space-y-2">
+                        <label htmlFor="userPrompt" className="text-sm font-medium opacity-70">
+                            Optional: Describe your sketch to help the AI
+                        </label>
+                        <input
+                            id="userPrompt"
+                            type="text"
+                            value={userPrompt}
+                            onChange={(e) => setUserPrompt(e.target.value)}
+                            placeholder="e.g. A futuristic city skyline at sunset..."
+                            className="w-full px-4 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                        />
+                    </div>
                 </div>
 
                 {/* Result Area */}

@@ -1,10 +1,9 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
     try {
-        const { image } = await req.json();
+        const { image, userPrompt } = await req.json();
 
         if (!image || typeof image !== "string") {
             return NextResponse.json(
@@ -38,12 +37,19 @@ export async function POST(req: Request) {
         // 2. Generate Image with Imagen 4.0 using the description.
 
         console.log("Analyzing sketch with Gemini...");
+
+        let visionPrompt = "Describe this sketch in extreme detail for a photorealistic image generator. Describe the subject, pose, composition, background, and lighting. Do not mention it is a sketch. Say 'A photograph of...'. Then suggest what the user is looking for by that composition and profidea photo realistic image. Not just a raw shapes";
+
+        if (userPrompt && typeof userPrompt === 'string' && userPrompt.trim().length > 0) {
+            visionPrompt += `\n\nCRITICAL CONTEXT FROM USER: The user describes this drawing as: "${userPrompt.trim()}". Ensure the description aligns with this intent while respecting the drawn composition.`;
+        }
+
         const visionRes = await googleAI.models.generateContent({
             model: "gemini-2.0-flash-exp",
             contents: [{
                 role: "user",
                 parts: [
-                    { text: "Describe this sketch in extreme detail for a photorealistic image generator. Describe the subject, pose, composition, background, and lighting. Do not mention it is a sketch. Say 'A photograph of...'. Then suggest what the user is looking for by that composition and profidea photo realistic image. Not just a raw shapes" },
+                    { text: visionPrompt },
                     { inlineData: { mimeType: "image/webp", data: base64Data } }
                 ]
             }]

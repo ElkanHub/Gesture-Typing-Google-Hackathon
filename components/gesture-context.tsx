@@ -340,10 +340,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         if (path.length > 0 && path.length < 4) {
             // @ts-ignore
             const literalText = path.map(p => p.originalKey || p.key).join('');
-            
+
             // Insert literal text into focus target
             insertTextIntoActiveElement(literalText);
-            
+
             setTrajectory([]);
             setGhostWord(null);
             setGhostTrajectory([]);
@@ -438,6 +438,13 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             }
             setTrajectory([]);
             return;
+        }
+
+        if (mode === 'TRAINING') {
+            console.log("Training Mode: Sequence Captured", sequence);
+            setLastGestureSequence(sequence);
+            setTrajectory([]);
+            return; // Skip prediction and insertion
         }
 
         const localMatch = PatternStore.getMatch(sequence);
@@ -570,7 +577,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 return newSet;
             });
 
-            if ((mode === 'TYPING' || mode === 'DRAWING') && isCalibrated) {
+            if ((mode === 'TYPING' || mode === 'DRAWING' || mode === 'TRAINING') && isCalibrated) {
                 if (trajectory.length === 0 && lastGestureSequence && pendingWord) {
                     console.log("Implicitly confirming:", pendingWord);
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
@@ -620,67 +627,67 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord, predictedCompletion]);
 
 
-const validationTarget = !isCalibrated && mode === 'VALIDATION'
-    ? VALIDATION_SEQUENCE[validationIndex]
-    : null;
+    const validationTarget = !isCalibrated && mode === 'VALIDATION'
+        ? VALIDATION_SEQUENCE[validationIndex]
+        : null;
 
-const selectPrediction = (word: string) => {
-    if (pendingWord && committedText.endsWith(pendingWord)) {
-        const newText = committedText.slice(0, -pendingWord.length) + word;
-        setCommittedText(newText);
-    } else {
-        setCommittedText(prev => prev + ' ' + word);
-    }
+    const selectPrediction = (word: string) => {
+        if (pendingWord && committedText.endsWith(pendingWord)) {
+            const newText = committedText.slice(0, -pendingWord.length) + word;
+            setCommittedText(newText);
+        } else {
+            setCommittedText(prev => prev + ' ' + word);
+        }
 
-    if (lastGestureSequence) {
-        console.log("Explicitly learning correction:", word);
-        PatternStore.learnPattern(lastGestureSequence, word);
-    }
+        if (lastGestureSequence) {
+            console.log("Implicitly Learn:", lastGestureSequence, "->", word);
+            PatternStore.learnPattern(lastGestureSequence, word);
+        }
 
-    setLastGestureSequence(null);
-    setPendingWord(null);
-};
+        setLastGestureSequence(null);
+        setPendingWord(null);
+    };
 
-const clearText = () => {
-    setCommittedText('');
-    setLastGestureSequence(null);
-    setPendingWord(null);
-    setGhostWord(null);
-    setGhostTrajectory([]);
-};
+    const clearText = () => {
+        setCommittedText('');
+        setLastGestureSequence(null);
+        setPendingWord(null);
+        setGhostWord(null);
+        setGhostTrajectory([]);
+    };
 
-return (
-    <GestureContext.Provider value={{
-        mode,
-        setMode,
-        keyMap,
-        validationTarget,
-        registerKeyPosition,
-        isCalibrated,
-        activeKeys,
-        trajectory,
-        committedText,
-        predictions,
-        ghostWord,
-        ghostTrajectory,
-        selectPrediction,
-        clearText,
-        debugState: {
-            lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
-            anchors: debugAnchors,
-            rawPath: trajectory
-        },
-        predictedCompletion,
-        acceptCompletion,
-        shapes,
-        addShape,
-        updateShape,
-        removeShape,
-        clearCanvas
-    }}>
-        {children}
-    </GestureContext.Provider>
-);
+    return (
+        <GestureContext.Provider value={{
+            mode,
+            setMode,
+            keyMap,
+            validationTarget,
+            registerKeyPosition,
+            isCalibrated,
+            activeKeys,
+            trajectory,
+            committedText,
+            predictions,
+            ghostWord,
+            ghostTrajectory,
+            selectPrediction,
+            clearText,
+            debugState: {
+                lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
+                anchors: debugAnchors,
+                rawPath: trajectory
+            },
+            predictedCompletion,
+            acceptCompletion,
+            shapes,
+            addShape,
+            updateShape,
+            removeShape,
+            clearCanvas
+        }}>
+            {children}
+        </GestureContext.Provider>
+    );
 };
 
 export const useGesture = () => {

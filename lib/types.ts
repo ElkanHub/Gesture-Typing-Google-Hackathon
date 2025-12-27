@@ -6,7 +6,7 @@ export type Point = {
     originalKey?: string;
 };
 
-export type GestureMode = 'VALIDATION' | 'TYPING' | 'DRAWING';
+export type GestureMode = 'VALIDATION' | 'TYPING' | 'DRAWING' | 'TRAINING';
 
 export interface KeyMap {
     [key: string]: { x: number; y: number; width: number; height: number };

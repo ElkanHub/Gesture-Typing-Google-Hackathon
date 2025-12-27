@@ -103,7 +103,56 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const [predictedCompletion, setPredictedCompletion] = useState<string | null>(null);
     const autocompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Fetch Autocomplete when text changes
+
+    // --- Focus & Auto-Mode Logic ---
+    useEffect(() => {
+        const handleFocusChange = (e: FocusEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target) return;
+
+            const tagName = target.tagName;
+            const isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
+            const isCanvas = target.getAttribute('data-mode') === 'drawing';
+
+            if (isCanvas) {
+                console.log("Canvas focused -> DRAWING mode");
+                setMode('DRAWING');
+            } else if (isInput) {
+                console.log("Input focused -> TYPING mode");
+                setMode('TYPING'); // Assuming 'TYPING' covers gesture typing
+            }
+        };
+
+        // Listen for focusin (bubbles) from document
+        document.addEventListener('focusin', handleFocusChange);
+        return () => document.removeEventListener('focusin', handleFocusChange);
+    }, []);
+
+    const insertTextIntoActiveElement = (text: string) => {
+        const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement;
+        if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) {
+            // Fallback to internal state if no native input focused
+            setCommittedText(prev => prev + text);
+            return;
+        }
+
+        // Programmatic insert
+        const start = active.selectionStart || 0;
+        const end = active.selectionEnd || 0;
+
+        // Use setRangeText to preserve undo history if possible (modern browsers)
+        // or just value manipulation
+        active.setRangeText(text, start, end, 'end');
+
+        // Dispatch input event so React/Frameworks pick it up
+        const event = new Event('input', { bubbles: true });
+        active.dispatchEvent(event);
+
+        // Sync internal state just in case
+        setCommittedText(active.value);
+    };
+
+    // Autocomplete Timer (Existing)
     useEffect(() => {
         if (!committedText || committedText.length < 5) {
             setPredictedCompletion(null);
@@ -312,7 +361,11 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         if (anchorWord.length >= 3 && COMMON_WORDS.includes(anchorWord)) {
             console.log("Anchor Match Found:", anchorWord);
             setPredictions([anchorWord, "(Anchor Match)"]);
-            setCommittedText(prev => prev + (prev ? ' ' : '') + anchorWord);
+
+            // INSERT TEXT
+            const textToInsert = (committedText ? ' ' : '') + anchorWord;
+            insertTextIntoActiveElement(textToInsert);
+
             setLastGestureSequence(sequence);
             setPendingWord(anchorWord);
             setTrajectory([]);
@@ -418,7 +471,10 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             if (data.predictions && data.predictions.length > 0) {
                 setPredictions(data.predictions);
                 const topWord = data.predictions[0];
-                setCommittedText(prev => prev + (prev ? ' ' : '') + topWord);
+
+                // INSERT TEXT
+                const textToInsert = (committedText ? ' ' : '') + topWord;
+                insertTextIntoActiveElement(textToInsert);
 
                 setLastGestureSequence(sequence);
                 setPendingWord(topWord);
@@ -535,10 +591,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                     timerRef.current = setTimeout(() => {
                         processGesture();
                     }, 400);
-                } else {
-                    if (e.key.length === 1) {
-                        setCommittedText(prev => prev + originalKey);
-                    }
                 }
             }
         };
@@ -562,67 +614,67 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord, predictedCompletion]);
 
 
-    const validationTarget = !isCalibrated && mode === 'VALIDATION'
-        ? VALIDATION_SEQUENCE[validationIndex]
-        : null;
+const validationTarget = !isCalibrated && mode === 'VALIDATION'
+    ? VALIDATION_SEQUENCE[validationIndex]
+    : null;
 
-    const selectPrediction = (word: string) => {
-        if (pendingWord && committedText.endsWith(pendingWord)) {
-            const newText = committedText.slice(0, -pendingWord.length) + word;
-            setCommittedText(newText);
-        } else {
-            setCommittedText(prev => prev + ' ' + word);
-        }
+const selectPrediction = (word: string) => {
+    if (pendingWord && committedText.endsWith(pendingWord)) {
+        const newText = committedText.slice(0, -pendingWord.length) + word;
+        setCommittedText(newText);
+    } else {
+        setCommittedText(prev => prev + ' ' + word);
+    }
 
-        if (lastGestureSequence) {
-            console.log("Explicitly learning correction:", word);
-            PatternStore.learnPattern(lastGestureSequence, word);
-        }
+    if (lastGestureSequence) {
+        console.log("Explicitly learning correction:", word);
+        PatternStore.learnPattern(lastGestureSequence, word);
+    }
 
-        setLastGestureSequence(null);
-        setPendingWord(null);
-    };
+    setLastGestureSequence(null);
+    setPendingWord(null);
+};
 
-    const clearText = () => {
-        setCommittedText('');
-        setLastGestureSequence(null);
-        setPendingWord(null);
-        setGhostWord(null);
-        setGhostTrajectory([]);
-    };
+const clearText = () => {
+    setCommittedText('');
+    setLastGestureSequence(null);
+    setPendingWord(null);
+    setGhostWord(null);
+    setGhostTrajectory([]);
+};
 
-    return (
-        <GestureContext.Provider value={{
-            mode,
-            setMode,
-            keyMap,
-            validationTarget,
-            registerKeyPosition,
-            isCalibrated,
-            activeKeys,
-            trajectory,
-            committedText,
-            predictions,
-            ghostWord,
-            ghostTrajectory,
-            selectPrediction,
-            clearText,
-            debugState: {
-                lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
-                anchors: debugAnchors,
-                rawPath: trajectory
-            },
-            predictedCompletion,
-            acceptCompletion,
-            shapes,
-            addShape,
-            updateShape,
-            removeShape,
-            clearCanvas
-        }}>
-            {children}
-        </GestureContext.Provider>
-    );
+return (
+    <GestureContext.Provider value={{
+        mode,
+        setMode,
+        keyMap,
+        validationTarget,
+        registerKeyPosition,
+        isCalibrated,
+        activeKeys,
+        trajectory,
+        committedText,
+        predictions,
+        ghostWord,
+        ghostTrajectory,
+        selectPrediction,
+        clearText,
+        debugState: {
+            lastSequence: lastGestureSequence || (trajectory.length > 0 ? "..." : null),
+            anchors: debugAnchors,
+            rawPath: trajectory
+        },
+        predictedCompletion,
+        acceptCompletion,
+        shapes,
+        addShape,
+        updateShape,
+        removeShape,
+        clearCanvas
+    }}>
+        {children}
+    </GestureContext.Provider>
+);
 };
 
 export const useGesture = () => {

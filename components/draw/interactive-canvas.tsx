@@ -249,8 +249,10 @@ export const InteractiveCanvas = forwardRef<HTMLDivElement>((props, ref) => {
     return (
         <div
             ref={ref}
+            tabIndex={0}
+            data-mode="drawing"
             onClick={() => setSelectedId(null)} // Deselect on background click
-            className="relative w-full h-[600px] bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl overflow-hidden shadow-inner"
+            className="relative w-full h-[600px] bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl overflow-hidden shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
         >
             <div className="absolute top-4 right-4 text-gray-400 text-sm font-mono pointer-events-none select-none text-right z-0">
                 <p>Interactive Canvas Active</p>

@@ -228,14 +228,14 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
 
 
 
-export function InteractiveCanvas() {
-    const { shapes, addShape, updateShape, removeShape, clearCanvas } = useGesture();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+// ... imports ...
+import { forwardRef } from 'react';
 
-    // Generation State
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+// ... DraggableShape component ...
+
+export const InteractiveCanvas = forwardRef<HTMLDivElement>((props, ref) => {
+    const { shapes, addShape, updateShape, removeShape, clearCanvas } = useGesture();
+    const [selectedId, setSelectedId] = useState<string | null>(null);
 
     // Scale factor for visibility
     const scale = 500;
@@ -246,112 +246,12 @@ export function InteractiveCanvas() {
         if (selectedId === id) setSelectedId(null);
     };
 
-    const handleGenerate = async () => {
-        if (!containerRef.current) return;
-        setIsGenerating(true);
-        setSelectedId(null); // Deselect before capture
-
-        try {
-            const html2canvas = (await import('html2canvas')).default;
-            const canvas = await html2canvas(containerRef.current, {
-                backgroundColor: '#ffffff', // Force white background for cleaner input
-                scale: 1, // Standard resolution is fine for sketch input
-            });
-
-            // Optimize input: WebP 0.8 quality
-            const initImage = canvas.toDataURL('image/webp', 0.8);
-
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: initImage })
-            });
-
-            if (!response.ok) throw new Error('Generation failed');
-
-            const data = await response.json();
-            if (data.image) {
-                setGeneratedImage(data.image);
-            }
-        } catch (error) {
-            console.error("Generation error:", error);
-            alert("Failed to generate image. Please try again.");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    const handleDownload = (dataUrl: string, filename: string) => {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     return (
         <div
-            ref={containerRef}
+            ref={ref}
             onClick={() => setSelectedId(null)} // Deselect on background click
             className="relative w-full h-[600px] bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl overflow-hidden shadow-inner"
         >
-            {/* Canvas Controls */}
-            <div className="absolute top-4 left-4 flex gap-2 z-50">
-                <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating || shapes.length === 0}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
-                >
-                    {isGenerating ? (
-                        <span className="animate-spin">⏳</span>
-                    ) : (
-                        <Wand2 size={14} className="text-purple-500" />
-                    )}
-                    Generate
-                </button>
-                {generatedImage && (
-                    <button
-                        onClick={() => handleDownload(generatedImage, 'generated-art.webp')}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
-                    >
-                        <Download size={14} className="text-blue-500" />
-                        Download Art
-                    </button>
-                )}
-                <button
-                    onClick={() => {
-                        if (containerRef.current) {
-                            import('html2canvas').then(html2canvas => {
-                                html2canvas.default(containerRef.current!, { backgroundColor: null }).then(canvas => {
-                                    handleDownload(canvas.toDataURL('image/webp'), 'my-sketch.webp');
-                                });
-                            });
-                        }
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
-                >
-                    <Download size={14} className="text-gray-500" />
-                    Save Sketch
-                </button>
-            </div>
-
-            {/* Generated Image Overlay */}
-            {generatedImage && (
-                <div className="absolute inset-0 z-40 bg-white/5 dark:bg-black/5 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-300">
-                    <div className="relative max-w-full max-h-full shadow-2xl rounded-lg overflow-hidden border-4 border-white dark:border-zinc-800">
-                        {/* Close Button */}
-                        <button
-                            onClick={() => setGeneratedImage(null)}
-                            className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/70 text-white rounded-full z-10"
-                        >
-                            <X size={16} />
-                        </button>
-                        <img src={generatedImage} alt="Generated Art" className="max-h-[500px] object-contain" />
-                    </div>
-                </div>
-            )}
-
             <div className="absolute top-4 right-4 text-gray-400 text-sm font-mono pointer-events-none select-none text-right z-0">
                 <p>Interactive Canvas Active</p>
                 <p className="text-xs opacity-50">Shapes: {shapes.length}</p>
@@ -379,4 +279,6 @@ export function InteractiveCanvas() {
             )}
         </div>
     );
-}
+});
+
+InteractiveCanvas.displayName = 'InteractiveCanvas';

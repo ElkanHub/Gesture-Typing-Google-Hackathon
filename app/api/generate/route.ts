@@ -5,29 +5,59 @@ export async function POST(req: Request) {
     try {
         const { image } = await req.json();
 
-        if (!image) {
-            return NextResponse.json({ error: "No image provided" }, { status: 400 });
+        if (!image || typeof image !== "string") {
+            return NextResponse.json(
+                { error: "No image provided or invalid format" },
+                { status: 400 }
+            );
         }
 
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
         if (!apiKey) {
-            return NextResponse.json({ error: "API Key missing" }, { status: 500 });
+            return NextResponse.json(
+                { error: "API key missing" },
+                { status: 500 }
+            );
         }
 
-        // 1. Setup the client
+        // --- Initialize Gemini ---
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: "gemini-3-pro-image-preview" }); // Using 2.0-flash-exp for image gen as 3-pro might not be authed for this key
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-        // 2. Prepare the base64 data
-        const base64Data = image.replace(/^data:image\/(png|jpeg|webp);base64,/, "");
+        // --- Extract base64 safely ---
+        const base64Data = image.replace(
+            /^data:image\/(png|jpeg|jpg|webp);base64,/,
+            ""
+        );
 
-        // 3. Generate Content
+        // --- Generate content ---
         const result = await model.generateContent({
             contents: [
                 {
                     role: "user",
                     parts: [
-                        { text: "Turn this rough layout into a beautiful, futuristic sci-fi cityscape at sunset. The style should be cinematic and highly detailed." },
+                        {
+                            text: `
+                            You are a digital master artist specializing in Realism.
+
+TASK:
+Transform the provided rough sketch into a FULLY REALIZED, RECTANGULAR illustration using SVG.
+The output must look like a complete picture, NOT just floating shapes.
+
+CRITICAL INSTRUCTIONS:
+1. **INTERPRETATION**: detailed scene based on the shapes (e.g., if it looks like a dog, draw a realistic dog in a park).
+2. **BACKGROUND**: You MUST fill the entire SVG 100% with a background scene (sky, ground, room, etc.). No transparent or white void.
+3. **STYLE**: "Realism" or "Design with Lighting". Use gradients, shadows, and filters to achieve depth.
+4. **COMPOSITION**: Respect the relative positions of the input shapes, but fully flesh them out into real objects.
+
+OUTPUT FORMAT:
+- Return ONLY the raw \`<svg>\` code.
+- The SVG must define a \`viewBox\`.
+- Do NOT wrap in markdown code blocks.
+- Do NOT add any conversational text.
+                            `
+                        },
                         {
                             inlineData: {
                                 mimeType: "image/webp",
@@ -36,37 +66,52 @@ export async function POST(req: Request) {
                         }
                     ]
                 }
-            ],
-            generationConfig: {
-                // responseModalities: ["IMAGE"], // Not supported in current SDK types, inferred from model/prompt
-            }
+            ]
         });
 
-        // 4. Extract Image
-        // The structure might vary based on SDK version, but user snippet aligns with recent docs
-        const candidates = result.response?.candidates;
-        if (!candidates || candidates.length === 0) {
-            throw new Error("No candidates returned");
+        const response = result.response;
+        console.log("Gemini Response Candidates:", JSON.stringify(response.candidates, null, 2));
+
+        if (!response?.candidates || response.candidates.length === 0) {
+            throw new Error("No candidates returned by Gemini");
         }
 
-        const finalPart = candidates[0].content.parts[0];
-        if (!finalPart || !finalPart.inlineData) {
-            throw new Error("No image data in response");
+        // --- Extract SVG Code ---
+        const candidate = response.candidates[0];
+        const textPart = candidate.content?.parts.find(p => p.text);
+
+        if (!textPart || !textPart.text) {
+            throw new Error("No text content generated (SVG code missing)");
         }
 
-        const finalImageBase64 = finalPart.inlineData.data;
+        let svgCode = textPart.text.trim();
 
-        // Return as Data URL
-        const dataUrl = `data:image/png;base64,${finalImageBase64}`;
+        // Clean Markdown if present
+        if (svgCode.startsWith("```")) {
+            svgCode = svgCode.replace(/^```(svg|xml)?/i, "").replace(/```$/, "").trim();
+        }
 
-        return NextResponse.json({ image: dataUrl });
+        // Basic verification
+        if (!svgCode.includes("<svg") || !svgCode.includes("</svg>")) {
+            throw new Error("Generated content is not a valid SVG");
+        }
+
+        // Encode to Data URL
+        const base64Svg = Buffer.from(svgCode).toString("base64");
+        const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+
+        return NextResponse.json({
+            image: dataUrl
+        });
 
     } catch (error: any) {
-        console.error("Image Gen API Error:", error);
-        // Better error logging
-        if (error.response) {
-            console.error("Upstream Response:", JSON.stringify(error.response, null, 2));
-        }
-        return NextResponse.json({ error: "Generation Failed", details: error.message }, { status: 500 });
+        console.error("Gemini Image Route Error:", error);
+        return NextResponse.json(
+            {
+                error: "Image generation failed",
+                details: error.message ?? "Unknown error"
+            },
+            { status: 500 }
+        );
     }
 }

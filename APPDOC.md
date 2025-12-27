@@ -103,3 +103,7 @@ User swipes "hello" (h -> e -> l -> l -> o).
 6.  **Prediction**: Returns "hello" as top result.
 7.  **Commitment**: User presses Space. "hello" is confirmed.
 8.  **Learning**: System learns "h-e-l-l-o" shape = "hello". Next time, it skips the API.
+
+
+
+The name of my school is Tema Tech

@@ -13,7 +13,9 @@ export function Keyboard() {
     activeKeys,
     trajectory,
     ghostTrajectory, // NEW: Access Ghost Trajectory
-    registerKeyPosition
+    registerKeyPosition,
+    predictions,
+    selectPrediction
   } = useGesture();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,6 +58,30 @@ export function Keyboard() {
   return (
     <div ref={containerRef} className="relative w-full max-w-5xl mx-auto border rounded-xl p-4 bg-gray-50 shadow-lg select-none">
 
+      {/* Suggestion Bar (Integrated) */}
+      {mode === 'TYPING' && (
+        <div className="absolute -top-16 left-0 right-0 h-14 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl shadow-sm flex items-center px-4 gap-2 overflow-x-auto z-40 transition-all transform animate-in fade-in slide-in-from-bottom-2">
+          {predictions.length === 0 ? (
+            <span className="text-gray-400 text-xs ml-2 italic">Start sliding to type...</span>
+          ) : (
+            predictions.map((word, index) => (
+              <button
+                key={index}
+                onClick={() => selectPrediction(word)}
+                className={`
+                            px-4 py-1.5 rounded-full text-sm font-medium transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap shadow-sm
+                            ${index === 0
+                    ? 'bg-blue-600 text-white shadow-blue-200'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}
+                        `}
+              >
+                {word}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Visual Trajectory Overlay */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-50 overflow-visible">
         {/* Ghost Path (Bottom Layer) */}
@@ -86,7 +112,7 @@ export function Keyboard() {
         )}
       </svg>
 
-      <div className="flex flex-col gap-2 relative z-10">
+      <div className="flex flex-col gap-2 relative z-10 pt-4">
         {keys.map((row, rowIndex) => (
           <div key={rowIndex} className="flex justify-center gap-2">
             {row.map((char) => {

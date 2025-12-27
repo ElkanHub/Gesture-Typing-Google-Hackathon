@@ -1,5 +1,4 @@
 import { TypingArea } from "@/components/ui/typing-area";
-import { PredictionBar } from "@/components/ui/prediction-bar";
 import { Keyboard } from "@/components/ui/keyboard";
 
 import { AppDocModal } from "@/components/app-doc-modal";
@@ -55,7 +54,6 @@ export default async function Home() {
         <div className="flex-grow flex flex-col gap-6">
           <TypingArea />
           <div className="flex flex-col gap-4">
-            <PredictionBar />
             <Keyboard />
           </div>
         </div>

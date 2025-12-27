@@ -64,7 +64,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Lookup**: `O(1)` check before API calls. Fulfills the "Efficiency" requirement.
     *   **Learning**:
         *   **Implicit**: Auto-saves patterns when user manually selects a correction.
-        *   **Explicit**: "Training Page" (Planned) for 3-shot learning.
+        *   **Explicit**: **Training Page** (`/train`) allows 3-shot learning for specific words.
 
 ### Layer 6: AI Inference (The Semantic Brain)
 *   **File**: `app/api/predict/route.ts`
@@ -94,6 +94,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 | `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini Vision -> Imagen 4.0. |
 | `components/ui/keyboard.tsx` | **The Interface**. Renders keys, gesture trail, and the **Integrated Suggestion Bar**. |
 | `lib/pattern-store.ts` | **Memory**. LocalStorage wrapper for efficiency. |
+| `app/train/page.tsx` | **Training Lab**. Explicit 3-shot learning UI. |
 
 ## 8. Data Flow Example
 

@@ -475,13 +475,34 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         if (localMatch) {
             console.log("Local Pattern Fit Found:", localMatch);
             setPredictions([localMatch, "(Local Pattern)"]);
-            setCommittedText(prev => prev + (prev ? ' ' : '') + localMatch);
+
+            // Focus Check before inserting
+            const active = document.activeElement;
+            const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+            if (isInput) {
+                insertTextIntoActiveElement(localMatch);
+            } else {
+                console.warn("Local found but no input focused. Skipping insertion.");
+                setTrajectory([]);
+                return;
+            }
+
             setLastGestureSequence(sequence);
             setPendingWord(localMatch);
             setTrajectory([]);
             setGhostWord(null);
             setGhostTrajectory([]);
             setDebugAnchors(anchors); // Ensure debug updates
+            return;
+        }
+
+        // --- Strict Focus Check for API Calls ---
+        // Prevents triggering expensive AI calls if the user isn't actually focused on an input
+        const active = document.activeElement;
+        const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+        if (mode === 'TYPING' && !isInput) {
+            console.log("Gesture detected but no input focused. Skipping API call.");
+            setTrajectory([]);
             return;
         }
 

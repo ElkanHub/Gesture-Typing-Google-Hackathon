@@ -15,54 +15,62 @@ export async function POST(req: Request) {
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
         if (!apiKey) {
-            return NextResponse.json(
-                { error: "API key missing" },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: "API key missing" }, { status: 500 });
         }
 
+        // Initialize with the v1beta API to access Gemini 3 preview features
         const googleAI = new GoogleGenAI({ apiKey });
 
-        const base64Data = image.replace(
-            /^data:image\/(png|jpeg|jpg|webp);base64,/,
-            ""
-        );
+        // Clean the base64 string
+        const base64Data = image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
 
-        // First: Use Vision model to describe the sketch detailedly
-        // This is necessary because some Image models don't accept image inputs directly (sketch-to-image), or require specific formats.
-        // But let's try direct sketch-to-image with Imagen 4 if possible.
-        // However, usually "predict" models are Text-to-Image.
-        // Strategy: 
-        // 1. Describe sketch with Gemini 2.0 Flash.
-        // 2. Generate Image with Imagen 4.0 using the description.
+        /**
+         * STAGE 1: Use Gemini 3 Pro Image to analyze the sketch.
+         * Gemini 3 Pro Image (Nano Banana Pro) is specifically tuned 
+         * for understanding artistic composition.
+         */
+        console.log("Analyzing sketch with Gemini 3 Pro Image...");
 
-        console.log("Analyzing sketch with Gemini...");
+        let visionPrompt = `
+            Act as an expert art director. Analyze this hand-drawn sketch.
+            1. Identify the core subject and composition.
+            2. Translate these rough shapes into a high-end, photorealistic prompt.
+            3. Describe lighting, textures (cinematic 8k), and depth of field.
+            DO NOT mention it is a sketch. Start your description with 'A professional studio photograph of...'.
+        `;
 
-        let visionPrompt = "Describe this sketch in extreme detail for a photorealistic image generator. Describe the subject, pose, composition, background, and lighting. Do not mention it is a sketch. Say 'A photograph of...'. Then suggest what the user is looking for by that composition and profidea photo realistic image. Not just a raw shapes";
-
-        if (userPrompt && typeof userPrompt === 'string' && userPrompt.trim().length > 0) {
-            visionPrompt += `\n\nCRITICAL CONTEXT FROM USER: The user describes this drawing as: "${userPrompt.trim()}". Ensure the description aligns with this intent while respecting the drawn composition.`;
+        if (userPrompt?.trim()) {
+            visionPrompt += `\n\nUSER'S INTENT: "${userPrompt.trim()}". Prioritize this intent while following the sketch's layout.`;
         }
 
         const visionRes = await googleAI.models.generateContent({
-            model: "gemini-2.0-flash-exp",
+            model: "gemini-3-pro-image-preview", // The official Gemini 3 reasoning-vision model
             contents: [{
                 role: "user",
                 parts: [
                     { text: visionPrompt },
                     { inlineData: { mimeType: "image/webp", data: base64Data } }
                 ]
-            }]
+            }],
+            config: {
+                // Gemini 3 exclusive: Set thinking level to high for deep reasoning
+                // @ts-ignore - Preview feature types might be missing or strict
+                thinkingConfig: {
+                    thinkingLevel: "high" as any
+                }
+            }
         });
 
         const description = visionRes.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!description) throw new Error("Failed to interpret sketch");
+        if (!description) throw new Error("Gemini 3 failed to interpret the sketch.");
 
-        console.log("Sketch Description:", description);
+        console.log("Gemini 3 Reasoning Result:", description);
 
-        // Second: Generate Image with Imagen 4
-        // Note: Imagen 4.0 Fast on Generative Language API supports 'predict', not 'generateContent'.
-        console.log("Generating image with Imagen 4.0 via predict...");
+        /**
+         * STAGE 2: Generate the final high-fidelity image with Imagen 4.0 Fast.
+         * Imagen 4 uses the 'predict' method for speed-optimized generation.
+         */
+        console.log("Generating final render with Imagen 4.0 Fast...");
 
         const predictUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
 
@@ -74,46 +82,34 @@ export async function POST(req: Request) {
                     { prompt: description }
                 ],
                 parameters: {
-                    sampleCount: 1
+                    sampleCount: 1,
+                    aspectRatio: "1:1", // Options: 1:1, 4:3, 16:9
+                    safetySetting: "block_medium_and_above",
+                    personGeneration: "allow_adult" // Imagen 4 standard parameter
                 }
             })
         });
 
         if (!predictRes.ok) {
             const errText = await predictRes.text();
-            throw new Error(`Imagen predict failed (${predictRes.status}): ${errText}`);
+            throw new Error(`Imagen 4 failed: ${errText}`);
         }
 
         const predictData = await predictRes.json();
-        console.log("Imagen Predict Response Keys:", Object.keys(predictData));
+        const b64 = predictData.predictions[0]?.bytesBase64Encoded;
 
-        if (!predictData.predictions || predictData.predictions.length === 0) {
-            throw new Error("No predictions returned");
-        }
+        if (!b64) throw new Error("No image data returned from Imagen 4.");
 
-        const prediction = predictData.predictions[0];
-        // The format is typically { bytesBase64Encoded: "..." } or similar.
-        const b64 = prediction.bytesBase64Encoded || prediction.image?.bytesBase64Encoded || prediction;
-
-        if (typeof b64 !== "string") {
-            console.error("Prediction structure:", JSON.stringify(prediction, null, 2));
-            throw new Error("Unexpected prediction format - could not find base64 string");
-        }
-
-        const dataUrl = `data:image/png;base64,${b64}`;
-
+        // Return the final image and the "thought" (description) for the UI
         return NextResponse.json({
-            image: dataUrl,
+            image: `data:image/png;base64,${b64}`,
             thought: description
         });
 
     } catch (error: any) {
-        console.error("Gemini Image Route Error:", error);
+        console.error("Pipeline Error:", error);
         return NextResponse.json(
-            {
-                error: "Image generation failed",
-                details: error.message ?? "Unknown error"
-            },
+            { error: "Generation failed", details: error.message },
             { status: 500 }
         );
     }

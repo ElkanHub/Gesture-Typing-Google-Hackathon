@@ -69,14 +69,20 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 
 ---
 
-## 4. Generative AI Pipeline (Sketch-to-Masterpiece)
+## 4. Agentic Creative Flow (The "Art Director" Loop)
 *   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
-*   **Flow**:
-    1.  **Input**: User draws shapes on `InteractiveCanvas` using the gesture keyboard.
-    2.  **Reasoning**: `Gemini 3 Pro Preview` (Thinking Mode: High) analyzes the canvas. It infers the user's creative intent and generates a detailed prompt.
-    3.  **Visualization**: Users can view Gemini's internal "Thoughts" via a modal in the UI.
-    4.  **Creation**: `Imagen 4.0 Fast` receives the optimized prompt and generates a high-fidelity image.
-    5.  **Result**: The masterpiece is displayed in a premium gallery view with download options.
+*   **Concept**: Instead of a simple "prompt -> image" linear path, the system employs an autonomous **Agentic Loop** modeled after a human design process.
+
+### The 4-Stage Cycle
+1.  **PLAN (Gemini 3 Pro)**: The agent analyzes the user's sketch and intent. It acts as an "Art Director", devising a strategy (lighting, composition, style) before any image is generated.
+2.  **EXECUTE (Imagen 4 Fast)**: The system generates a draft based on the plan.
+3.  **VERIFY (Gemini 3 Pro Vision)**: The agent *looks* at the generated image and compares it to the original sketch. It critiques the result (e.g., "Did I miss the user's circle? Is the lighting correct?").
+4.  **CORRECT (Self-Healing)**: If the verification score is low (< 8/10), the agent automatically re-prompts the generator with specific corrective instructions (e.g., "Fix the alignment of the red ball").
+
+### Benefits
+*   **Higher Accuracy**: The system "proofreads" its own work.
+*   **Ghost-in-the-Machine**: Users see the agent's internal monologue ("Thinking...", "Critiquing...", "Refining..."), creating a transparent and engaging experience.
+*   **Multimodal Refinement**: The "Refine" feature feeds the *previous output* back into the Planning stage, allowing for iterative artistic direction.
 
 ---
 

@@ -29,10 +29,21 @@ Instead of typing every letter, users can slide their fingers across the keys. T
     -   Draw shapes with your keyboard in the `/draw` mode.
     -   **Gemini 3 Pro (Reasoning)** analyzes your intent.
     -   **Imagen 4.0 Fast** generates photorealistic masterpieces.
+    -   **Iterative Refinement**: Move shapes to adjust the layout of the generated image while keeping the consistent style.
 -   **Premium UI/UX**:
     -   Glassmorphic headers and floating panels.
     -   Visual gesture trails and live "Thinking" feedback.
     -   Dark mode support.
+
+## 🤖 Agentic Architecture
+
+This project moves beyond simple API calls by implementing a **Self-Correcting Agentic Loop**:
+1.  **Plan**: Gemini analyzes the sketch and "thinks" of a creative direction.
+2.  **Execute**: Imagen generates the artwork.
+3.  **Verify**: Gemini *views* the result to check if it matches the user's sketch.
+4.  **Correct**: If the result is flawed, the Agent *automatically* iterates to fix it—all on the server side.
+
+**Benefit**: This ensures higher fidelity to user intent and "first-try" success by simulating a human review process.
 
 ## 🛠️ Tech Stack
 

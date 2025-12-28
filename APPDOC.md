@@ -12,7 +12,7 @@ The application is built on **Next.js** (App Router) with **Tailwind CSS**. The 
 -   **Framework**: Next.js 14+
 -   **Styling**: Tailwind CSS
 -   **State**: React Context API
--   **AI**: Google Gemini API (`gemini-2.0-flash-exp`)
+-   **AI**: Google Gemini API (`gemini-1.5-flash`)
 -   **Persistence**: LocalStorage (for patterns)
 
 ---
@@ -28,6 +28,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Focus-Aware Routing (New)**: The system automatically detects the active element.
         *   **Typing Mode**: Activates when any `textarea` or `input` is focused.
         *   **Drawing Mode**: Activates when the `InteractiveCanvas` is focused.
+        *   **Training Mode**: Activates exclusively on the `/train` page.
     *   **Anti-Ghosting**: Intercepts native key events for mapped keys to prevent "double typing" (raw characters + gesture result).
     *   **Visuals**: Relies on `Keyboard.tsx` for the floating, always-on Suggestion Bar.
 
@@ -57,18 +58,18 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Output**: A list of "Physically Valid Candidates" (e.g., `['their', 'there']`).
 
 ### Layer 5: Pattern Recognition (The Muscle Memory Store)
-*   **File**: `lib/pattern-store.ts`
-*   **Purpose**: Speed and personalization (Efficiency Layer).
+*   **File**: `lib/pattern-store.ts`, `app/train/page.tsx`
+*   **Purpose**: Speed, personalization, and API reduction (Strategic Layer).
 *   **Logic**:
-    *   **L1 Cache (Hybrid Arch)**: Maps a simplified key sequence (e.g., "thherre" -> "there").
-    *   **Lookup**: `O(1)` check before API calls. Fulfills the "Efficiency" requirement.
-    *   **Learning**:
-        *   **Implicit**: Auto-saves patterns when user manually selects a correction.
-        *   **Explicit**: **Training Page** (`/train`) allows 3-shot learning for specific words.
+    *   **Explicit Training Interface (`/train`)**: A dedicated mode where users can manually associate raw key streams with a target word.
+        *   **Process**: User enters word -> Swipes it 3 times (Raw stream visualized) -> Saves.
+        *   **Outcome**: Maps specific noisy sequences directly to the word.
+    *   **L1 Cache Lookup**: Before any dictionary or AI processing, the engine checks `PatternStore`.
+    *   **Priority Match**: If a pattern match is found, it is inserted immediately without API cost.
 
 ### Layer 6: AI Inference (The Semantic Brain)
 *   **File**: `app/api/predict/route.ts`
-*   **Model**: Gemini 2.0 Flash Experimental
+*   **Model**: Gemini 1.5 Flash (Production Tier)
 *   **Purpose**: Final disambiguation using context.
 *   **Prompt Logic**:
     *   **Inputs**: Noisy Trajectory, Anchors, Candidate List, Previous Sentence Context.
@@ -79,7 +80,8 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 *   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
 *   **Flow**:
     1.  **Input**: User draws simple shapes on `InteractiveCanvas` using the gesture keyboard + optional text description.
-    2.  **Vision Analysis**: `Gemini 2.0 Flash` (Vision) analyzes the canvas screenshot and generates a detailed, photorealistic prompt.
+    2.  **Vision Analysis**: `Gemini 2.0 Flash` (Vision) analyzes the canvas screenshot and generates a detailed, photorealistic prompt. 
+        *   **New Feature**: Users can click "Thoughts" to read this internal interpretation.
     3.  **Image Synthesis**: `Imagen 4.0` receives the prompt and generates a high-fidelity JPEG.
     4.  **Display**: Result replaces the canvas background or appears alongside.
 
@@ -91,7 +93,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 | :--- | :--- |
 | `components/gesture-context.tsx` | **The Core Brain**. Handles input routing (focus-aware), state, local analysis, and layer orchestration. |
 | `app/api/predict/route.ts` | **The Text Brain**. OpenAI/Gemini interface for word prediction. |
-| `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini Vision -> Imagen 4.0. |
+| `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini Vision -> Imagen 4.0. Returns image + thought. |
 | `components/ui/keyboard.tsx` | **The Interface**. Renders keys, gesture trail, and the **Integrated Suggestion Bar**. |
 | `lib/pattern-store.ts` | **Memory**. LocalStorage wrapper for efficiency. |
 | `app/train/page.tsx` | **Training Lab**. Explicit 3-shot learning UI. |

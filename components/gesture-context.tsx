@@ -477,15 +477,8 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             setPredictions([localMatch, "(Local Pattern)"]);
 
             // Focus Check before inserting
-            const active = document.activeElement;
-            const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
-            if (isInput) {
-                insertTextIntoActiveElement(localMatch);
-            } else {
-                console.warn("Local found but no input focused. Skipping insertion.");
-                setTrajectory([]);
-                return;
-            }
+            // RELAXED: Allow insertion into internal state if no input focused
+            insertTextIntoActiveElement(localMatch);
 
             setLastGestureSequence(sequence);
             setPendingWord(localMatch);
@@ -496,15 +489,21 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        // --- Strict Focus Check for API Calls ---
-        // Prevents triggering expensive AI calls if the user isn't actually focused on an input
+
+
+        // --- Strict Focus Check REMOVED ---
+        // We trust the 'mode' now. If mode is TYPING, we predict.
+        // The fallback in insertTextIntoActiveElement handles the lack of focused input.
+
+        /* 
         const active = document.activeElement;
         const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
         if (mode === 'TYPING' && !isInput) {
             console.log("Gesture detected but no input focused. Skipping API call.");
             setTrajectory([]);
             return;
-        }
+        } 
+        */
 
         const candidates = getVisualCandidates(path, anchors, keyMap);
         console.log("Filtered Candidates:", candidates);

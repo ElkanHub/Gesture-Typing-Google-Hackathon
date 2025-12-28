@@ -1,6 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
+// Helper to reliably encode chunks for the stream
+function encodeChunk(data: any) {
+    return new TextEncoder().encode(JSON.stringify(data) + "\n");
+}
+
 export async function POST(req: Request) {
     try {
         const { image, userPrompt } = await req.json();
@@ -17,80 +22,129 @@ export async function POST(req: Request) {
         const googleAI = new GoogleGenAI({ apiKey });
         const base64Data = image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
 
-        /**
-         * STAGE 1: Visual Reasoning with Gemini 3 Pro
-         * We use gemini-3-pro-preview because it supports explicit 'thinkingLevel'.
-         */
-        console.log("Analyzing sketch with Gemini 3 Pro reasoning...");
+        // Create a streaming response
+        const stream = new ReadableStream({
+            async start(controller) {
+                const send = (type: "status" | "thought" | "image" | "error", content: string, metadata?: any) => {
+                    controller.enqueue(encodeChunk({ type, content, ...metadata }));
+                };
 
-        const visionPrompt = `
-            Analyze this hand-drawn sketch. Use your high-level reasoning to:
-            1. Infer the user's creative intent from rough shapes.
-            2. Generate a highly detailed prompt for a photorealistic image generator.
-            3. Include specific details about lighting, material textures, and depth of field.
-            ${userPrompt ? `CRITICAL USER CONTEXT: "${userPrompt}"` : ""}
-            Output ONLY the photorealistic description. Start with "A professional photograph of..."
-        `;
+                try {
+                    // --- STAGE 1: PLAN (Gemini 3 Pro) ---
+                    send("status", "Agent starts planning...");
 
-        const visionRes = await googleAI.models.generateContent({
-            // Using the Pro reasoning model for the logic phase
-            model: "gemini-3-pro-preview",
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: visionPrompt },
-                    { inlineData: { mimeType: "image/webp", data: base64Data } }
-                ]
-            }],
-            config: {
-                // FIXED: Gemini 3 Pro supports thinkingLevel
-                thinkingConfig: {
-                    thinkingLevel: "high" as any
+                    const visionPrompt = `
+                        Analyze this hand-drawn sketch. 
+                        1. Infer the creative intent.
+                        2. Create a detailed prompt for a photorealistic image generator.
+                        3. CRITICAL: Capture the "Vibe", lighting, and materials.
+                        ${userPrompt ? `USER HINT: "${userPrompt}"` : ""}
+                        
+                        Output JSON: { "thought": "Brief reasoning...", "prompt": "The detailed prompt..." }
+                    `;
+
+                    send("status", "Analyzing sketch semantics...");
+                    const planRes = await googleAI.models.generateContent({
+                        model: "gemini-3-pro-preview",
+                        contents: [{
+                            role: "user",
+                            parts: [{ text: visionPrompt }, { inlineData: { mimeType: "image/webp", data: base64Data } }]
+                        }],
+                        config: {
+                            responseMimeType: "application/json",
+                            thinkingConfig: { thinkingLevel: "high" as any }
+                        }
+                    });
+
+                    // Capture Thought Signature if available (Mocking/Checking existence)
+                    // const thoughtSig = planRes.candidates?.[0]?.thoughtSignature; // API dependent
+
+                    const planJson = JSON.parse(planRes.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    const initialPrompt = planJson.prompt || "A photo of a sketch";
+                    const initialThought = planJson.thought || "Analyzing shapes...";
+
+                    send("thought", `PLANNING: ${initialThought}`);
+                    send("status", "Drafting initial render...");
+
+                    // --- STAGE 2: EXECUTE (Imagen 4 Fast) ---
+                    const generateImage = async (prompt: string) => {
+                        const predictUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
+                        const res = await fetch(predictUrl, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                instances: [{ prompt }],
+                                parameters: { aspectRatio: "1:1", sampleCount: 1, safetySetting: "block_low_and_above" }
+                            })
+                        });
+                        if (!res.ok) throw new Error("Imagen failed");
+                        const data = await res.json();
+                        return data.predictions[0]?.bytesBase64Encoded;
+                    };
+
+                    let currentImageB64 = await generateImage(initialPrompt);
+
+                    // --- STAGE 3: VERIFY (Gemini 3 Pro) ---
+                    send("status", "Verifying output against sketch...");
+                    send("thought", "VERIFICATION: Looking at the generated image to check for accuracy...");
+
+                    const verifyPrompt = `
+                        Compare the Original Sketch (Image 1) with the Generated Render (Image 2).
+                        Did the render capture the intent of the sketch?
+                        Rate from 1-10.
+                        If < 8, provide a "Fix Prompt" to improve it.
+                        Output JSON: { "score": number, "critique": "string", "fixPrompt": "string" }
+                    `;
+
+                    const verifyRes = await googleAI.models.generateContent({
+                        model: "gemini-3-pro-preview",
+                        contents: [{
+                            role: "user",
+                            parts: [
+                                { text: verifyPrompt },
+                                { inlineData: { mimeType: "image/webp", data: base64Data } }, // Original
+                                { inlineData: { mimeType: "image/png", data: currentImageB64 } } // Generated
+                            ]
+                        }],
+                        config: { responseMimeType: "application/json" }
+                    });
+
+                    const verifyJson = JSON.parse(verifyRes.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    send("thought", `CRITIQUE: Score ${verifyJson.score}/10. ${verifyJson.critique}`);
+
+                    // --- STAGE 4: CORRECT (Loop if needed) ---
+                    if (verifyJson.score < 8) {
+                        send("status", "Self-correcting image...");
+                        send("thought", `FIXING: Re-generating with feedback: "${verifyJson.fixPrompt}"`);
+
+                        // Combine prompts for better context
+                        const improvedPrompt = `${initialPrompt}. Improve: ${verifyJson.fixPrompt}`;
+                        currentImageB64 = await generateImage(improvedPrompt);
+                        send("thought", "Final polish complete.");
+                    } else {
+                        send("thought", "Quality verification passed. Perfect match.");
+                    }
+
+                    // Send Final Image
+                    send("image", `data:image/png;base64,${currentImageB64}`);
+                    controller.close();
+
+                } catch (error: any) {
+                    send("error", error.message);
+                    controller.close();
                 }
             }
         });
 
-        const description = visionRes.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!description) throw new Error("Reasoning model failed to return a description.");
-
-        console.log("Gemini 3 'High' Thinking Result:", description);
-
-        /**
-         * STAGE 2: High-Fidelity Render with Imagen 4.0 Fast
-         */
-        console.log("Generating final render with Imagen 4.0 Fast...");
-
-        const predictUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
-
-        const predictRes = await fetch(predictUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                instances: [{ prompt: description }],
-                parameters: {
-                    sampleCount: 1,
-                    aspectRatio: "1:1",
-                    safetySetting: "block_low_and_above",
-                    personGeneration: "allow_adult"
-                }
-            })
-        });
-
-        if (!predictRes.ok) {
-            const errText = await predictRes.text();
-            throw new Error(`Imagen 4 failed: ${errText}`);
-        }
-
-        const predictData = await predictRes.json();
-        const b64 = predictData.predictions[0]?.bytesBase64Encoded;
-
-        return NextResponse.json({
-            image: `data:image/png;base64,${b64}`,
-            thought: description // Send the thinking result back to UI
+        return new NextResponse(stream, {
+            headers: {
+                "Content-Type": "text/event-stream",
+                "Connection": "keep-alive",
+                "Cache-Control": "no-cache",
+            }
         });
 
     } catch (error: any) {
-        console.error("Pipeline Error:", error);
         return NextResponse.json(
             { error: "Generation failed", details: error.message },
             { status: 500 }

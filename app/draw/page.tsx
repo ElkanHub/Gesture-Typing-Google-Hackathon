@@ -5,27 +5,37 @@ import { useGesture } from "@/components/gesture-context";
 import { InteractiveCanvas } from "@/components/draw/interactive-canvas";
 import { Keyboard } from "@/components/ui/keyboard";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles, Brain, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function DrawPage() {
     const { setMode, shapes, clearCanvas } = useGesture();
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedArt, setGeneratedArt] = useState<string | null>(null);
-    const [thought, setThought] = useState<string | null>(null);
-    const [isThoughtOpen, setIsThoughtOpen] = useState(false);
+    const [thoughts, setThoughts] = useState<Array<{ type: 'status' | 'thought' | 'error', content: string }>>([]);
+    const [currentStatus, setCurrentStatus] = useState<string>("");
     const canvasRef = useRef<HTMLDivElement>(null);
-    const [status, setStatus] = useState<string>("");
     const [userPrompt, setUserPrompt] = useState("");
 
     useEffect(() => {
         setMode('DRAWING');
     }, [setMode]);
 
+    // Scroll thoughts to bottom
+    const thoughtsHelperRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (thoughtsHelperRef.current) {
+            thoughtsHelperRef.current.scrollTop = thoughtsHelperRef.current.scrollHeight;
+        }
+    }, [thoughts]);
+
     const handleGenerate = async () => {
         if (shapes.length === 0 || !canvasRef.current) return;
 
         setIsGenerating(true);
-        setStatus("Capturing sketch...");
+        setGeneratedArt(null);
+        setThoughts([]);
+        setCurrentStatus("Initializing Agent...");
+
         try {
             // Capture Canvas
             const html2canvas = (await import('html2canvas-pro')).default;
@@ -35,9 +45,8 @@ export default function DrawPage() {
             });
             const initImage = canvas.toDataURL('image/webp', 0.8);
 
-            setStatus("Dreaming up scene...");
-            // Generate SVG from API
-            const res = await fetch('/api/generate', {
+            // Stream Request
+            const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -46,48 +55,48 @@ export default function DrawPage() {
                 })
             });
 
-            if (!res.ok) throw new Error("Generation failed");
+            if (!response.body) throw new Error("No stream body");
 
-            const data = await res.json();
-            if (data.image && data.image.startsWith('data:image/svg+xml')) {
-                setStatus("Rendering masterpiece...");
-                // Convert SVG to PNG immediately
-                const img = new Image();
-                img.src = data.image;
-                await new Promise((resolve) => {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
 
-                const renderCanvas = document.createElement('canvas');
-                // High resolution render
-                const scale = 2;
-                renderCanvas.width = 1200 * scale;
-                renderCanvas.height = 800 * scale;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-                const ctx = renderCanvas.getContext('2d');
-                if (ctx) {
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, renderCanvas.width, renderCanvas.height);
-                    ctx.drawImage(img, 0, 0, renderCanvas.width, renderCanvas.height);
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || ""; // Keep incomplete line
 
-                    const pngUrl = renderCanvas.toDataURL('image/png');
-                    setGeneratedArt(pngUrl);
-                } else {
-                    // Fallback to SVG if canvas fails
-                    setGeneratedArt(data.image);
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const data = JSON.parse(line);
+
+                        if (data.type === "status") {
+                            setCurrentStatus(data.content);
+                            setThoughts(prev => [...prev, { type: 'status', content: data.content }]);
+                        } else if (data.type === "thought") {
+                            setThoughts(prev => [...prev, { type: 'thought', content: data.content }]);
+                        } else if (data.type === "image") {
+                            setGeneratedArt(data.content);
+                            setCurrentStatus("Complete");
+                        } else if (data.type === "error") {
+                            setThoughts(prev => [...prev, { type: 'error', content: data.content }]);
+                            setCurrentStatus("Error");
+                        }
+                    } catch (e) {
+                        console.error("Parse Error", e);
+                    }
                 }
-                if (data.thought) setThought(data.thought);
-            } else if (data.image) {
-                setGeneratedArt(data.image);
-                if (data.thought) setThought(data.thought);
             }
-        } catch (e) {
-            console.error("Failed to generate art", e);
-            alert("Failed to generate art. Please try again.");
+
+        } catch (e: any) {
+            console.error("Failed to generate", e);
+            setThoughts(prev => [...prev, { type: 'error', content: "Connection failed" }]);
         } finally {
             setIsGenerating(false);
-            setStatus("");
         }
     };
 
@@ -109,18 +118,18 @@ export default function DrawPage() {
                 style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }}>
             </div>
 
-            {/* Consistent Glass Header */}
-            <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-white/50 dark:border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-sm mb-8 sticky top-4 mt-4 mx-4">
+            {/* Header */}
+            <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-white/50 dark:border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-sm mb-6 sticky top-4 mt-4 mx-4">
                 <Link href="/" className="flex items-center gap-2 group text-gray-500 hover:text-black dark:hover:text-white transition-colors">
                     <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="font-medium">Back to Keyboard</span>
+                    <span className="font-medium">Back</span>
                 </Link>
                 <div className="flex items-center gap-4">
                     <button
                         onClick={clearCanvas}
                         className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
                     >
-                        Clear Canvas
+                        Clear
                     </button>
                     <button
                         onClick={handleGenerate}
@@ -131,12 +140,12 @@ export default function DrawPage() {
                         <div className="relative flex items-center gap-2">
                             {isGenerating ? (
                                 <>
-                                    <span className="animate-spin">●</span> {status || "Processing..."}
+                                    <span className="animate-spin">●</span> {currentStatus || "Thinking..."}
                                 </>
                             ) : (
                                 <>
-                                    <span>Generate Masterpiece</span>
-                                    <span className="text-lg">✨</span>
+                                    <span>Activate Creative Agent</span>
+                                    <Sparkles size={16} />
                                 </>
                             )}
                         </div>
@@ -144,21 +153,16 @@ export default function DrawPage() {
                 </div>
             </header>
 
-            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 px-4 z-10">
-                {/* Canvas Area */}
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold opacity-80 flex items-center gap-2">
-                            Your Sketch
-                        </h2>
-                    </div>
+            <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6 px-4 z-10">
+
+                {/* LEFT: Canvas (5 cols) */}
+                <div className="lg:col-span-4 flex flex-col gap-4">
                     <div className="p-1 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800">
                         <InteractiveCanvas ref={canvasRef} />
                     </div>
-
                     <div className="space-y-2 bg-white dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800/50">
                         <label htmlFor="userPrompt" className="text-sm font-medium opacity-70 block mb-2">
-                            Add a hint for the AI (Optional)
+                            Agent Hint (Context)
                         </label>
                         <input
                             id="userPrompt"
@@ -171,71 +175,72 @@ export default function DrawPage() {
                     </div>
                 </div>
 
-                {/* Result Area */}
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between h-[32px]">
-                        <h2 className="text-xl font-semibold opacity-80 flex items-center gap-2">
-                            The Masterpiece
-                        </h2>
-                        {generatedArt && (
-                            <div className="flex gap-2 animate-in fade-in slide-in-from-right-4">
-                                {thought && (
-                                    <button
-                                        onClick={() => setIsThoughtOpen(true)}
-                                        className="text-xs font-medium px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors flex items-center gap-1.5"
-                                    >
-                                        <span>🧠</span> Thoughts
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => handleDownload('gemini-masterpiece.png')}
-                                    className="text-xs font-medium px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-1.5"
-                                >
-                                    <span>⬇️</span> Download
-                                </button>
+                {/* MIDDLE: Agent Brain (3 cols) */}
+                <div className="lg:col-span-3 flex flex-col h-[600px] bg-white dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex items-center gap-2 bg-gray-50/50 dark:bg-zinc-950/30">
+                        <Brain size={18} className="text-purple-500" />
+                        <h3 className="font-semibold text-sm">Agent "Thought" Stream</h3>
+                    </div>
+                    <div ref={thoughtsHelperRef} className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs custom-scrollbar">
+                        {thoughts.length === 0 && !isGenerating && (
+                            <div className="text-center text-gray-400 mt-20">
+                                <p>Waiting for input...</p>
+                            </div>
+                        )}
+                        {thoughts.map((item, idx) => (
+                            <div key={idx} className={`flex gap-3 animate-in slide-in-from-left-2 fade-in duration-300`}>
+                                <div className="mt-0.5 shrink-0">
+                                    {item.type === 'status' && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
+                                    {item.type === 'thought' && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                                    {item.type === 'error' && <div className="w-2 h-2 rounded-full bg-red-500" />}
+                                </div>
+                                <div>
+                                    <p className={`leading-relaxed ${item.type === 'status' ? 'text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]' :
+                                            item.type === 'error' ? 'text-red-500' :
+                                                'text-gray-700 dark:text-gray-300'
+                                        }`}>
+                                        {item.content}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                        {isGenerating && (
+                            <div className="flex gap-2 items-center text-gray-400 animate-pulse text-xs ml-5">
+                                <span>...</span>
                             </div>
                         )}
                     </div>
+                </div>
 
+                {/* RIGHT: Result (5 cols) */}
+                <div className="lg:col-span-5 flex flex-col gap-4">
                     <div className="w-full h-[600px] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-inner flex items-center justify-center overflow-hidden p-4 relative group">
                         {generatedArt ? (
-                            <img
-                                src={generatedArt}
-                                alt="Generated Art"
-                                className="w-full h-full object-contain animate-in zoom-in-95 duration-500"
-                            />
+                            <div className="relative w-full h-full">
+                                <img
+                                    src={generatedArt}
+                                    alt="Generated Art"
+                                    className="w-full h-full object-contain animate-in zoom-in-95 duration-500"
+                                />
+                                <div className="absolute bottom-4 right-4 flex gap-2">
+                                    <button
+                                        onClick={() => handleDownload('gemini-masterpiece.png')}
+                                        className="text-xs font-bold px-4 py-2 bg-white/90 text-black rounded-full hover:bg-white shadow-lg transition-all flex items-center gap-2"
+                                    >
+                                        <span>⬇️</span> Download
+                                    </button>
+                                </div>
+                            </div>
                         ) : (
-                            <div className="text-center text-gray-400 opacity-40 group-hover:opacity-60 transition-opacity">
+                            <div className="text-center text-gray-400 opacity-40">
                                 <div className="text-6xl mb-4 grayscale">🎨</div>
-                                <p className="font-medium">Canvas Awaiting Imagination</p>
-                                <p className="text-xs mt-2 max-w-[200px] mx-auto leading-relaxed">Draw basic shapes on the left, add a hint, and watch Gemini 3 & Imagen 4 bring it to life.</p>
+                                <p className="font-medium">Canvas Awaiting Agent</p>
                             </div>
                         )}
                     </div>
                 </div>
+
             </div>
-
-            {/* Thought Modal */}
-            {isThoughtOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setIsThoughtOpen(false)}>
-                    {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"></div>
-
-                    {/* Content */}
-                    <div className="bg-white dark:bg-zinc-900 max-w-lg w-full rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95 border border-white/10" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setIsThoughtOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-                            ✕
-                        </button>
-                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2 border-b border-gray-100 dark:border-zinc-800 pb-2">
-                            <span className="text-2xl">🧠</span>
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-500">Gemini's Vision</span>
-                        </h3>
-                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto text-sm leading-relaxed text-gray-600 dark:text-gray-300 pr-2 custom-scrollbar">
-                            {thought}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Keyboard Control Deck */}
             <div className="w-full max-w-3xl mx-auto opacity-80 hover:opacity-100 transition-opacity mt-12 mb-8 z-10">

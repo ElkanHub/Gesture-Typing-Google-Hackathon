@@ -12,7 +12,7 @@ The application is built on **Next.js** (App Router) with **Tailwind CSS**. The 
 -   **Framework**: Next.js 14+
 -   **Styling**: Tailwind CSS
 -   **State**: React Context API
--   **AI**: Google Gemini API (`gemini-1.5-flash`)
+-   **AI**: Google Gemini API (`gemini-2.0-flash-exp`)
 -   **Persistence**: LocalStorage (for patterns)
 
 ---

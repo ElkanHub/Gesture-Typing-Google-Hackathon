@@ -102,7 +102,10 @@ export async function POST(req: Request) {
 
         const dataUrl = `data:image/png;base64,${b64}`;
 
-        return NextResponse.json({ image: dataUrl });
+        return NextResponse.json({
+            image: dataUrl,
+            thought: description
+        });
 
     } catch (error: any) {
         console.error("Gemini Image Route Error:", error);

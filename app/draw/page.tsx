@@ -11,6 +11,8 @@ export default function DrawPage() {
     const { setMode, shapes, clearCanvas } = useGesture();
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedArt, setGeneratedArt] = useState<string | null>(null);
+    const [thought, setThought] = useState<string | null>(null);
+    const [isThoughtOpen, setIsThoughtOpen] = useState(false);
     const canvasRef = useRef<HTMLDivElement>(null);
     const [status, setStatus] = useState<string>("");
     const [userPrompt, setUserPrompt] = useState("");
@@ -75,8 +77,10 @@ export default function DrawPage() {
                     // Fallback to SVG if canvas fails
                     setGeneratedArt(data.image);
                 }
+                if (data.thought) setThought(data.thought);
             } else if (data.image) {
                 setGeneratedArt(data.image);
+                if (data.thought) setThought(data.thought);
             }
         } catch (e) {
             console.error("Failed to generate art", e);
@@ -153,13 +157,24 @@ export default function DrawPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-semibold opacity-80">Gemini's Result</h2>
                         {generatedArt && (
-                            <button
-                                onClick={() => handleDownload('gemini-masterpiece.png')}
-                                className="text-sm px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
-                                Download Image
-                            </button>
+                            <div className="flex gap-2">
+                                {thought && (
+                                    <button
+                                        onClick={() => setIsThoughtOpen(true)}
+                                        className="text-sm px-4 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors shadow-sm flex items-center gap-2"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                        Thoughts
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleDownload('gemini-masterpiece.png')}
+                                    className="text-sm px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+                                    Download Image
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -181,8 +196,25 @@ export default function DrawPage() {
                 </div>
             </div>
 
+            {/* Thought Modal */}
+            {isThoughtOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setIsThoughtOpen(false)}>
+                    <div className="bg-white dark:bg-zinc-900 max-w-lg w-full rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setIsThoughtOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-900">
+                            ✕
+                        </button>
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <span className="text-2xl">🧠</span> The Vision
+                        </h3>
+                        <div className="prose dark:prose-invert max-h-[60vh] overflow-y-auto text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                            {thought}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Keyboard Control Deck */}
-            <div className="w-full max-w-3xl mx-auto opacity-80 hover:opacity-100 transition-opacity mt-12">
+            <div className="w-full max-w-3xl mx-auto opacity-80 hover:opacity-100 transition-opacity mt-12 mb-8">
                 <Keyboard />
                 <p className="text-center text-xs text-gray-400 mt-2">
                     Keyboard is in DRAWING mode. Gestures are mapped to shapes.

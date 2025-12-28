@@ -6,45 +6,35 @@ export async function POST(req: Request) {
         const { image, userPrompt } = await req.json();
 
         if (!image || typeof image !== "string") {
-            return NextResponse.json(
-                { error: "No image provided or invalid format" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "No image provided" }, { status: 400 });
         }
 
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
         if (!apiKey) {
             return NextResponse.json({ error: "API key missing" }, { status: 500 });
         }
 
-        // Initialize with the v1beta API to access Gemini 3 preview features
         const googleAI = new GoogleGenAI({ apiKey });
-
-        // Clean the base64 string
         const base64Data = image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
 
         /**
-         * STAGE 1: Use Gemini 3 Pro Image to analyze the sketch.
-         * Gemini 3 Pro Image (Nano Banana Pro) is specifically tuned 
-         * for understanding artistic composition.
+         * STAGE 1: Visual Reasoning with Gemini 3 Pro
+         * We use gemini-3-pro-preview because it supports explicit 'thinkingLevel'.
          */
-        console.log("Analyzing sketch with Gemini 3 Pro Image...");
+        console.log("Analyzing sketch with Gemini 3 Pro reasoning...");
 
-        let visionPrompt = `
-            Act as an expert art director. Analyze this hand-drawn sketch.
-            1. Identify the core subject and composition.
-            2. Translate these rough shapes into a high-end, photorealistic prompt.
-            3. Describe lighting, textures (cinematic 8k), and depth of field.
-            DO NOT mention it is a sketch. Start your description with 'A professional studio photograph of...'.
+        const visionPrompt = `
+            Analyze this hand-drawn sketch. Use your high-level reasoning to:
+            1. Infer the user's creative intent from rough shapes.
+            2. Generate a highly detailed prompt for a photorealistic image generator.
+            3. Include specific details about lighting, material textures, and depth of field.
+            ${userPrompt ? `CRITICAL USER CONTEXT: "${userPrompt}"` : ""}
+            Output ONLY the photorealistic description. Start with "A professional photograph of..."
         `;
 
-        if (userPrompt?.trim()) {
-            visionPrompt += `\n\nUSER'S INTENT: "${userPrompt.trim()}". Prioritize this intent while following the sketch's layout.`;
-        }
-
         const visionRes = await googleAI.models.generateContent({
-            model: "gemini-3-pro-image-preview", // The official Gemini 3 reasoning-vision model
+            // Using the Pro reasoning model for the logic phase
+            model: "gemini-3-pro-preview",
             contents: [{
                 role: "user",
                 parts: [
@@ -53,8 +43,7 @@ export async function POST(req: Request) {
                 ]
             }],
             config: {
-                // Gemini 3 exclusive: Set thinking level to high for deep reasoning
-                // @ts-ignore - Preview feature types might be missing or strict
+                // FIXED: Gemini 3 Pro supports thinkingLevel
                 thinkingConfig: {
                     thinkingLevel: "high" as any
                 }
@@ -62,13 +51,12 @@ export async function POST(req: Request) {
         });
 
         const description = visionRes.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!description) throw new Error("Gemini 3 failed to interpret the sketch.");
+        if (!description) throw new Error("Reasoning model failed to return a description.");
 
-        console.log("Gemini 3 Reasoning Result:", description);
+        console.log("Gemini 3 'High' Thinking Result:", description);
 
         /**
-         * STAGE 2: Generate the final high-fidelity image with Imagen 4.0 Fast.
-         * Imagen 4 uses the 'predict' method for speed-optimized generation.
+         * STAGE 2: High-Fidelity Render with Imagen 4.0 Fast
          */
         console.log("Generating final render with Imagen 4.0 Fast...");
 
@@ -78,14 +66,12 @@ export async function POST(req: Request) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                instances: [
-                    { prompt: description }
-                ],
+                instances: [{ prompt: description }],
                 parameters: {
                     sampleCount: 1,
-                    aspectRatio: "1:1", // Options: 1:1, 4:3, 16:9
-                    safetySetting: "block_medium_and_above",
-                    personGeneration: "allow_adult" // Imagen 4 standard parameter
+                    aspectRatio: "1:1",
+                    safetySetting: "block_low_and_above",
+                    personGeneration: "allow_adult"
                 }
             })
         });
@@ -98,12 +84,9 @@ export async function POST(req: Request) {
         const predictData = await predictRes.json();
         const b64 = predictData.predictions[0]?.bytesBase64Encoded;
 
-        if (!b64) throw new Error("No image data returned from Imagen 4.");
-
-        // Return the final image and the "thought" (description) for the UI
         return NextResponse.json({
             image: `data:image/png;base64,${b64}`,
-            thought: description
+            thought: description // Send the thinking result back to UI
         });
 
     } catch (error: any) {

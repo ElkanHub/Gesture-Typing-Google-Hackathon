@@ -1,6 +1,5 @@
 # APPDOC: Physical Gesture Typing Engine
-.
-.
+
 ## 1. Overview
 This application is a **web-based prototype for "Headless" Gesture Typing on Physical Keyboards**. Unlike traditional touchscreen keyboards, this system allows users to "swipe" on a physical keyboard (using a capacitive touch layer or simply rapid key-over-swiping). The engine interprets the noisy stream of keystrokes to deduce the intended word, combining geometric analysis, local pattern recognition, and Large Language Model (LLM) inference.
 
@@ -10,9 +9,11 @@ The application is built on **Next.js** (App Router) with **Tailwind CSS**. The 
 
 ### Tech Stack
 -   **Framework**: Next.js 14+
--   **Styling**: Tailwind CSS
+-   **Styling**: Tailwind CSS (with Glassmorphism & Modern UI Polish)
 -   **State**: React Context API
--   **AI**: Google Gemini API (`gemini-2.0-flash-exp`)
+-   **AI (Reasoning)**: Google Gemini 3 Pro Preview (`gemini-3-pro-preview` with Thinking Mode)
+-   **AI (Vision)**: Google Gemini 3 Pro Vision (`gemini-3-pro-image-preview`)
+-   **AI (Generation)**: Google Imagen 4.0 Fast (`imagen-3.0-generate-001`)
 -   **Persistence**: LocalStorage (for patterns)
 
 ---
@@ -25,88 +26,77 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 *   **Component**: `components/ui/keyboard.tsx` & `GestureContext`
 *   **Functionality**:
     *   **Calibration**: Maps physical keys to X/Y screen coordinates. This creates a "Virtual Map" of the physical layout.
-    *   **Focus-Aware Routing (New)**: The system automatically detects the active element.
+    *   **Focus-Aware Routing**: The system automatically detects the active element.
         *   **Typing Mode**: Activates when any `textarea` or `input` is focused.
         *   **Drawing Mode**: Activates when the `InteractiveCanvas` is focused.
         *   **Training Mode**: Activates exclusively on the `/train` page.
-    *   **Anti-Ghosting**: Intercepts native key events for mapped keys to prevent "double typing" (raw characters + gesture result).
-    *   **Visuals**: Relies on `Keyboard.tsx` for the floating, always-on Suggestion Bar.
+    *   **Anti-Ghosting**: Intercepts native key events for mapped keys to prevent "double typing".
+    *   **Visuals**: Renders a premium, glassmorphic suggestion bar and keyboard visualization.
 
 ### Layer 2: Hybrid Input Logic (Literal vs. Gesture)
 *   **File**: `components/gesture-context.tsx`
 *   **Logic**:
-    *   **Literal Typing**: Taps or short sequences (< 4 points) are treated as literal keystrokes. The engine programmatically inserts these chars into the *active DOM element* using `setRangeText` for seamless compatibility.
+    *   **Literal Typing**: Taps or short sequences (< 4 points) are treated as literal keystrokes.
     *   **Swipe Detection**: Longer sequences are routed to the gesture decoding pipeline.
 
 ### Layer 3: Local "Refining" Layer (Geometric Analysis)
 *   **Function**: `analyzeTrajectory` in `gesture-context.tsx`
 *   **Purpose**: To make sense of the noisy "middle" of a gesture.
-*   **Logic**:
-    *   **Dwell Detection**: Identifies keys where the user paused significantly longer (e.g., >1.3x average duration). These are flagged as **Anchors**.
-    *   **Inflection Detection**: Calculates the angle between key vectors. Sharp turns (>45°) are flagged as **Inflection Anchors**.
-    *   **Output**: A list of `anchors` (Start -> [Turn/Pause] -> End).
+*   **Algorithms**:
+    *   **Dwell Detection**: Identifies keys where the user paused.
+    *   **Inflection Detection**: Calculates angles between key vectors to find sharp turns.
 
 ### Layer 4: Local Candidate Filtering (The Dictionary)
 *   **Files**: `lib/dictionary.ts`, `lib/candidate-filter.ts`
-*   **Purpose**: To constrain the search space using "physics".
+*   **Description**: Constrains the search space using "physics".
 *   **Logic**:
-    *   **Lexicon**: A local dictionary of ~1000 common English words.
-    *   **Visual Filter**: Scans the dictionary for words that:
-        1.  Strictly start with the **Start Key**.
-        2.  Strictly end with the **End Key**.
-        3.  Contain the **Middle Anchors** in the correct relative order.
-    *   **Output**: A list of "Physically Valid Candidates" (e.g., `['their', 'there']`).
+    *   **Visual Filter**: Scans a 1000-word lexicon for words that match the Start Key, End Key, and intermediate Anchor Points.
 
-### Layer 5: Pattern Recognition (The Muscle Memory Store)
+### Layer 5: Pattern Recognition (Strategic Layer)
 *   **File**: `lib/pattern-store.ts`, `app/train/page.tsx`
-*   **Purpose**: Speed, personalization, and API reduction (Strategic Layer).
-*   **Logic**:
-    *   **Explicit Training Interface (`/train`)**: A dedicated mode where users can manually associate raw key streams with a target word.
-        *   **Process**: User enters word -> Swipes it 3 times (Raw stream visualized) -> Saves.
-        *   **Outcome**: Maps specific noisy sequences directly to the word.
-    *   **L1 Cache Lookup**: Before any dictionary or AI processing, the engine checks `PatternStore`.
-    *   **Priority Match**: If a pattern match is found, it is inserted immediately without API cost.
+*   **Purpose**: Speed, personalization, and API reduction.
+*   **Training Interface (`/train`)**:
+    *   **Mode**: A dedicated "Pattern Training Lab" with a terminal-inspired UI.
+    *   **Process**: User inputs a target word -> Records 3 raw swipe attempts -> System saves the mapping.
+    *   **Visualization**: Displays the live, raw key stream (e.g., `hhhheeeelllloooo`) in real-time.
+    *   **Inference**: Before AI processing, the system checks `PatternStore` for 1:1 matches.
 
 ### Layer 6: AI Inference (The Semantic Brain)
 *   **File**: `app/api/predict/route.ts`
-*   **Model**: Gemini 1.5 Flash (Production Tier)
+*   **Model**: Gemini 1.5 Flash
 *   **Purpose**: Final disambiguation using context.
-*   **Prompt Logic**:
-    *   **Inputs**: Noisy Trajectory, Anchors, Candidate List, Previous Sentence Context.
-    *   **Hard Constraints**: The prompt explicitly forbids predicting words that do not match the Start/End keys.
-    *   **Task**: "Choose the best word from the Candidate List that fits the sentence 'I went to ___'."
-
-## 6. Generative AI Pipeline (Sketch-to-Realism)
-*   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
-*   **Flow**:
-    1.  **Input**: User draws simple shapes on `InteractiveCanvas` using the gesture keyboard + optional text description.
-    2.  **Vision Analysis**: `Gemini 2.0 Flash` (Vision) analyzes the canvas screenshot and generates a detailed, photorealistic prompt. 
-        *   **New Feature**: Users can click "Thoughts" to read this internal interpretation.
-    3.  **Image Synthesis**: `Imagen 4.0` receives the prompt and generates a high-fidelity JPEG.
-    4.  **Display**: Result replaces the canvas background or appears alongside.
+*   **Logic**: Chooses the best word from the candidate list that fits the previous sentence context.
 
 ---
 
-## 7. Key Files & Responsibilities
+## 4. Generative AI Pipeline (Sketch-to-Masterpiece)
+*   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
+*   **Flow**:
+    1.  **Input**: User draws shapes on `InteractiveCanvas` using the gesture keyboard.
+    2.  **Reasoning**: `Gemini 3 Pro Preview` (Thinking Mode: High) analyzes the canvas. It infers the user's creative intent and generates a detailed prompt.
+    3.  **Visualization**: Users can view Gemini's internal "Thoughts" via a modal in the UI.
+    4.  **Creation**: `Imagen 4.0 Fast` receives the optimized prompt and generates a high-fidelity image.
+    5.  **Result**: The masterpiece is displayed in a premium gallery view with download options.
+
+---
+
+## 5. UI/UX Design System
+The application now features a unified, premium design language:
+*   **Glassmorphism**: Headers and floating panels use `backdrop-blur` and translucent backgrounds.
+*   **Global Styles**: Smooth scrolling, custom selection colors, and a subtle dot-pattern background.
+*   **Typography**: Optimized hierarchy using the `Geist` font family.
+*   **Consistency**: Shared header components and layout structures across Home, Train, and Draw pages.
+
+---
+
+## 6. Key Files & Responsibilities
 
 | File | specific Responsibility |
 | :--- | :--- |
-| `components/gesture-context.tsx` | **The Core Brain**. Handles input routing (focus-aware), state, local analysis, and layer orchestration. |
-| `app/api/predict/route.ts` | **The Text Brain**. OpenAI/Gemini interface for word prediction. |
-| `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini Vision -> Imagen 4.0. Returns image + thought. |
-| `components/ui/keyboard.tsx` | **The Interface**. Renders keys, gesture trail, and the **Integrated Suggestion Bar**. |
-| `lib/pattern-store.ts` | **Memory**. LocalStorage wrapper for efficiency. |
-| `app/train/page.tsx` | **Training Lab**. Explicit 3-shot learning UI. |
-
-## 8. Data Flow Example
-
-User swipes "hello" (h -> e -> l -> l -> o).
-
-1.  **Input**: Key stream captured: `h, h, e, e, l, l, l, o`.
-2.  **Focus Check**: Is user in a text field? Yes -> Mode = TYPING.
-3.  **Refining**: Start: `h`, End: `o`, Middle Anchor: `l`.
-4.  **L1 Cache**: Check `PatternStore`. (Hit? Return instantly. Miss? Continue).
-5.  **Filtering**: Dictionary -> `['hello', 'hollow', 'halo']`.
-6.  **AI Inference**: Send candidates + Context.
-7.  **Prediction**: AI returns "hello".
-8.  **Output**: "hello" inserted into `<textarea>` via `insertTextIntoActiveElement`.
+| `components/gesture-context.tsx` | **The Core Brain**. Handles input routing, state, and layer orchestration. |
+| `app/api/predict/route.ts` | **The Text Brain**. Word prediction via Gemini 1.5 Flash. |
+| `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini 3 Reasoning -> Imagen 4. |
+| `components/ui/keyboard.tsx` | **The Interface**. Renders keys, gesture trail, and suggestions. |
+| `lib/pattern-store.ts` | **Memory**. LocalStorage wrapper for learned patterns. |
+| `app/train/page.tsx` | **Training Lab**. Explicit 3-shot learning UI with raw stream visualization. |
+| `app/draw/page.tsx` | **Creative Studio**. Interactive canvas and AI art generation interface. |

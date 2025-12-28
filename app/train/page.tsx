@@ -11,7 +11,8 @@ export default function TrainingPage() {
         setMode,
         debugState,
         clearText,
-        keyMap
+        keyMap,
+        isCalibrated
     } = useGesture();
 
     // Local State
@@ -27,7 +28,6 @@ export default function TrainingPage() {
     // 1. Initialize Mode
     useEffect(() => {
         setMode('TRAINING');
-        return () => setMode('VALIDATION'); // Cleanup
     }, [setMode]);
 
     // 2. Monitor Sequence (Live + Final)

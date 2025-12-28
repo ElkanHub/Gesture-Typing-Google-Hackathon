@@ -17,7 +17,6 @@ export default function DrawPage() {
 
     useEffect(() => {
         setMode('DRAWING');
-        return () => setMode('TYPING');
     }, [setMode]);
 
     const handleGenerate = async () => {

@@ -4,8 +4,13 @@ import React, { useEffect, useRef } from 'react';
 import { useGesture } from '@/components/gesture-context';
 
 export function TypingArea() {
-    const { committedText, clearText, predictedCompletion } = useGesture();
+    const { committedText, clearText, predictedCompletion, setMode } = useGesture();
     const endRef = useRef<HTMLDivElement>(null);
+
+    // Enforce TYPING mode on this page
+    useEffect(() => {
+        setMode('TYPING');
+    }, [setMode]);
 
     // Auto-scroll removed per user request
     // useEffect(() => {

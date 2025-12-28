@@ -40,7 +40,8 @@ export default async function Home() {
             <span className="text-white dark:text-black font-bold text-lg">⌨️</span>
           </div>
           <p className="font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-            Gesture Typing - Prototype
+            Gesture Typing - Prototype 
+            <span className="text-xs text-gray-500 dark:text-gray-400">  This app is meant to be used on a PC with a physical keyboard</span>
           </p>
         </div>
 

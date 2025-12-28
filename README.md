@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Headless Gesture Typing Engine (Prototype)
 
-## Getting Started
+> **Swipe on your physical keyboard. Let AI handle the rest.**
 
-First, run the development server:
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/status-Prototype-orange.svg)
+![AI](https://img.shields.io/badge/AI-Gemini%203%20Pro-purple.svg)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📖 Overview
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The **Headless Gesture Typing Engine** is a web-based prototype that brings the convenience of "swipe typing" (typically found on smartphones) to physical desktop keyboards. 
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Instead of typing every letter, users can slide their fingers across the keys. The engine interprets the noisy key stream using a multi-layered approach involving geometric analysis, local pattern matching, and **Google Gemini 1.5/3.0** for context-aware prediction.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ✨ Key Features
 
-## Learn More
+-   **Physical Gesture Support**: Swipe across your mechanical or laptop keyboard. The system maps key positions to a virtual coordinate space.
+-   **6-Layer Decoding Engine**:
+    -   Anti-ghosting & Calibration
+    -   Hybrid Input (Tap vs. Swipe)
+    -   Geometric Trajectory Analysis
+    -   Dictionary Filtering
+    -   **Pattern Training Store** (Personalized 3-shot learning)
+    -   **AI Inference** (Gemini 1.5 Flash for context)
+-   **Generative Art Studio**:
+    -   Draw shapes with your keyboard in the `/draw` mode.
+    -   **Gemini 3 Pro (Reasoning)** analyzes your intent.
+    -   **Imagen 4.0 Fast** generates photorealistic masterpieces.
+-   **Premium UI/UX**:
+    -   Glassmorphic headers and floating panels.
+    -   Visual gesture trails and live "Thinking" feedback.
+    -   Dark mode support.
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+-   **Framework**: Next.js 14 (App Router)
+-   **Language**: TypeScript
+-   **Styling**: Tailwind CSS
+-   **AI Models**:
+    -   Text: `gemini-1.5-flash`
+    -   Reasoning: `gemini-3-pro-preview`
+    -   Vision: `gemini-3-pro-image-preview`
+    -   Image: `imagen-3.0-generate-001` (Imagen 4 Fast)
+-   **Storage**: LocalStorage (Patterns)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Getting Started
 
-## Deploy on Vercel
+### Prerequisites
+-   Node.js 18+
+-   A Google AI Studio API Key (`GEMINI_API_KEY`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/physical-gesture.git
+    cd physical-gesture
+    ```
+
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+
+3.  **Set up Environment Variables**:
+    Create a `.env` file in the root:
+    ```env
+    GEMINI_API_KEY=your_api_key_here
+    ```
+
+4.  **Run the Development Server**:
+    ```bash
+    npm run dev
+    ```
+
+5.  **Open the App**:
+    Visit `http://localhost:3000` in your browser.
+
+## 🎮 Usage Guide
+
+### 1. Calibration (Important!)
+*   On the home page, type the "Validation Keys" shown on the floating keyboard (e.g., `Q`, `P`, `Z`, `M`).
+*   This calibrates the engine to your specific physical keyboard layout.
+
+### 2. Gesture Typing
+*   Focus on the main text area.
+*   **Tap** keys normally for single letters.
+*   **Swipe** (glide your finger) across keys to type words.
+*   The AI will predict the most likely word based on your sentence.
+
+### 3. Training Mode (`/train`)
+*   Navigate to **Pattern Training Lab**.
+*   Type a target word (e.g., "algorithm").
+*   Perform the gesture 3 times to teach the engine your specific style.
+*   This creates a personalized shortcut that bypasses AI for speed.
+
+### 4. Draw Mode (`/draw`)
+*   Switch to **Draw via Keyboard** mode.
+*   Gesturing on the keyboard creates shapes on the canvas.
+*   Click **Generate Masterpiece** to have Gemini & Imagen interpret your sketch.
+
+## 📄 Documentation
+
+For a deep dive into the architecture, algorithms, and 6-layer engine, see [APPDOC.md](./APPDOC.md).
+
+---
+
+*Built with ❤️ and AI.*

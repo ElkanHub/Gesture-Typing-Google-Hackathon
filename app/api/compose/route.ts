@@ -11,7 +11,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No shapes provided" }, { status: 400 });
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
 
         const prompt = `
         You are a digital artist specializing in geometric abstraction and generative art.

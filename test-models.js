@@ -11,7 +11,7 @@ async function listModels() {
         const genAI = new GoogleGenerativeAI(apiKey);
 
         console.log("Fetching available models...");
-        const response = await genAI.getGenerativeModel({ model: "gemini-1.5-flash" }).apiKey; // Just to init? No, need listModels on the class or similar?
+        const response = await genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }).apiKey; // Just to init? No, need listModels on the class or similar?
         // Actually the SDK might not expose listModels directly on the instance easily in all versions.
         // Let's rely on the SDK documentation pattern if possible.
         // Wait, standard SDK has `genAI.getGenerativeModel` but listing might require a different call.

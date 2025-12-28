@@ -41,12 +41,12 @@ async function checkImagen() {
 
         // Try fallback check for other models
         try {
-            console.log("Checking 'gemini-1.5-flash'...");
-            const flash = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            console.log("Checking 'gemini-3-flash-preview'...");
+            const flash = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
             await flash.generateContent("Hello");
-            console.log("'gemini-1.5-flash' is working.");
+            console.log("'gemini-3-flash-preview' is working.");
         } catch (e2) {
-            console.error("'gemini-1.5-flash' also failed:", e2.message);
+            console.error("'gemini-3-flash-preview' also failed:", e2.message);
         }
     }
 }

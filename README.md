@@ -1,8 +1,7 @@
-# Headless Gesture Typing Engine (Prototype)
+# Headless Gesture Typing Engine (Prototype) GEMINI 3 Hackathon Project
 
 > **Swipe on your physical keyboard. Let AI handle the rest.**
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-Prototype-orange.svg)
 ![AI](https://img.shields.io/badge/AI-Gemini%203%20Pro-purple.svg)
 
@@ -10,7 +9,11 @@
 
 The **Headless Gesture Typing Engine** is a web-based prototype that brings the convenience of "swipe typing" (typically found on smartphones) to physical desktop keyboards. 
 
-Instead of typing every letter, users can slide their fingers across the keys. The engine interprets the noisy key stream using a multi-layered approach involving geometric analysis, local pattern matching, and **Google Gemini 1.5/3.0** for context-aware prediction.
+Instead of typing every letter, users can slide their fingers across the keys. The engine interprets the noisy key stream using a multi-layered approach involving geometric analysis, local pattern matching, and **Google Gemini 3.0** for context-aware prediction.
+
+## Public Preview Link.
+
+ **https://gesture-typing-google-hackathon.vercel.app/**
 
 ## ✨ Key Features
 
@@ -21,7 +24,7 @@ Instead of typing every letter, users can slide their fingers across the keys. T
     -   Geometric Trajectory Analysis
     -   Dictionary Filtering
     -   **Pattern Training Store** (Personalized 3-shot learning)
-    -   **AI Inference** (Gemini 1.5 Flash for context)
+    -   **AI Inference** (Gemini 3 Pro for context)
 -   **Generative Art Studio**:
     -   Draw shapes with your keyboard in the `/draw` mode.
     -   **Gemini 3 Pro (Reasoning)** analyzes your intent.
@@ -37,7 +40,7 @@ Instead of typing every letter, users can slide their fingers across the keys. T
 -   **Language**: TypeScript
 -   **Styling**: Tailwind CSS
 -   **AI Models**:
-    -   Text: `gemini-1.5-flash`
+    -   Text: `gemini-3-flash-preview`
     -   Reasoning: `gemini-3-pro-preview`
     -   Vision: `gemini-3-pro-image-preview`
     -   Image: `imagen-3.0-generate-001` (Imagen 4 Fast)
@@ -105,4 +108,3 @@ For a deep dive into the architecture, algorithms, and 6-layer engine, see [APPD
 
 ---
 
-*Built with ❤️ and AI.*

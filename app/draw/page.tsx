@@ -149,7 +149,7 @@ export default function DrawPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-semibold opacity-80 flex items-center gap-2">
-                            <span>✏️</span> Your Sketch
+                            Your Sketch
                         </h2>
                     </div>
                     <div className="p-1 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800">
@@ -175,7 +175,7 @@ export default function DrawPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between h-[32px]">
                         <h2 className="text-xl font-semibold opacity-80 flex items-center gap-2">
-                            <span>🖼️</span> The Masterpiece
+                            The Masterpiece
                         </h2>
                         {generatedArt && (
                             <div className="flex gap-2 animate-in fade-in slide-in-from-right-4">

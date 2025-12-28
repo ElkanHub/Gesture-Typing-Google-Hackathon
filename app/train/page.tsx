@@ -164,7 +164,7 @@ export default function TrainingPage() {
                                     />
                                     <button
                                         onClick={handleSetWord}
-                                        className="bg-black hover:bg-gray-900 text-white px-8 font-bold text-lg transition-colors border-l border-gray-100"
+                                        className="w-fit flex items-center justify-center bg-black hover:bg-gray-900 text-white px-8 font-bold text-lg transition-colors border-l border-gray-100"
                                     >
                                         BEGIN
                                     </button>

@@ -40,7 +40,7 @@ export default async function Home() {
             <span className="text-white dark:text-black font-bold text-lg">⌨️</span>
           </div>
           <p className="font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-            Headless Gesture Engine
+            Gesture Typing - Prototype
           </p>
         </div>
 
@@ -53,7 +53,6 @@ export default async function Home() {
               <span className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-purple-600 group-hover:from-pink-500 group-hover:to-purple-500 transition-all">
                 Draw Mode
               </span>
-              <span className="ml-2 text-base group-hover:translate-x-0.5 transition-transform">🎨</span>
             </div>
           </Link>
         </div>

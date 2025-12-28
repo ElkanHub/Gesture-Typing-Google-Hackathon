@@ -28,13 +28,24 @@ export default function DrawPage() {
         }
     }, [thoughts]);
 
-    const handleGenerate = async () => {
+    const handleGenerate = async (isRefine = false) => {
         if (shapes.length === 0 || !canvasRef.current) return;
 
         setIsGenerating(true);
-        setGeneratedArt(null);
+        // Only clear generated art if starting fresh, otherwise keep it for reference until new one arrives? 
+        // Actually, for better UX in refine, we might want to keep showing the old one until the new one is ready, 
+        // but the current UI shows a loader. Let's keep it simple: clear it or maybe specific state?
+        // Let's clear it to show progress.
+        // setGeneratedArt(null); 
+        // wait, if we clear it, the Refine button disappears because it checks specific conditional.
+        // We should probably NOT clear generatedArt immediately if refreshing, or use a temp state.
+        // However, the UI buttons logic relies on 'generatedArt'.
+        // If I clear it, it goes back to 'Activate Creative Agent' mode visually.
+        // So I should NOT setGeneratedArt(null) here if refining.
+        if (!isRefine) setGeneratedArt(null);
+
         setThoughts([]);
-        setCurrentStatus("Initializing Agent...");
+        setCurrentStatus(isRefine ? "Refining Agent..." : "Initializing Agent...");
 
         try {
             // Capture Canvas
@@ -51,7 +62,8 @@ export default function DrawPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     image: initImage,
-                    userPrompt: userPrompt.trim()
+                    userPrompt: userPrompt.trim(),
+                    previousImage: isRefine ? generatedArt : undefined
                 })
             });
 
@@ -125,31 +137,70 @@ export default function DrawPage() {
                     <span className="font-medium">Back</span>
                 </Link>
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={clearCanvas}
-                        className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                        Clear
-                    </button>
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isGenerating || shapes.length === 0}
-                        className="group relative px-6 py-2 rounded-lg font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 group-hover:scale-105 transition-transform"></div>
-                        <div className="relative flex items-center gap-2">
-                            {isGenerating ? (
-                                <>
-                                    <span className="animate-spin">●</span> {currentStatus || "Thinking..."}
-                                </>
-                            ) : (
-                                <>
-                                    <span>Activate Creative Agent</span>
-                                    <Sparkles size={16} />
-                                </>
-                            )}
-                        </div>
-                    </button>
+                    {generatedArt ? (
+                        <>
+                            <button
+                                onClick={() => {
+                                    clearCanvas();
+                                    setGeneratedArt(null);
+                                    setThoughts([]);
+                                    setCurrentStatus("");
+                                    setUserPrompt("");
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 dark:bg-zinc-800 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                            >
+                                <Sparkles size={16} />
+                                New Artwork
+                            </button>
+                            <button
+                                onClick={() => handleGenerate(true)}
+                                disabled={isGenerating}
+                                className="group relative px-6 py-2 rounded-lg font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 group-hover:scale-105 transition-transform"></div>
+                                <div className="relative flex items-center gap-2">
+                                    {isGenerating ? (
+                                        <>
+                                            <span className="animate-spin">●</span> {currentStatus || "Refining..."}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Refine</span>
+                                            <CheckCircle size={16} />
+                                        </>
+                                    )}
+                                </div>
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={clearCanvas}
+                                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                onClick={() => handleGenerate(false)}
+                                disabled={isGenerating || shapes.length === 0}
+                                className="group relative px-6 py-2 rounded-lg font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 group-hover:scale-105 transition-transform"></div>
+                                <div className="relative flex items-center gap-2">
+                                    {isGenerating ? (
+                                        <>
+                                            <span className="animate-spin">●</span> {currentStatus || "Thinking..."}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Activate Creative Agent</span>
+                                            <Sparkles size={16} />
+                                        </>
+                                    )}
+                                </div>
+                            </button>
+                        </>
+                    )}
                 </div>
             </header>
 
@@ -196,8 +247,8 @@ export default function DrawPage() {
                                 </div>
                                 <div>
                                     <p className={`leading-relaxed ${item.type === 'status' ? 'text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]' :
-                                            item.type === 'error' ? 'text-red-500' :
-                                                'text-gray-700 dark:text-gray-300'
+                                        item.type === 'error' ? 'text-red-500' :
+                                            'text-gray-700 dark:text-gray-300'
                                         }`}>
                                         {item.content}
                                     </p>

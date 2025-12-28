@@ -8,7 +8,7 @@ function encodeChunk(data: any) {
 
 export async function POST(req: Request) {
     try {
-        const { image, userPrompt } = await req.json();
+        const { image, userPrompt, previousImage } = await req.json();
 
         if (!image || typeof image !== "string") {
             return NextResponse.json({ error: "No image provided" }, { status: 400 });
@@ -31,28 +31,57 @@ export async function POST(req: Request) {
 
                 try {
                     // --- STAGE 1: PLAN (Gemini 3 Pro) ---
-                    send("status", "Agent starts planning...");
+                    const isRefine = !!previousImage;
+                    send("status", isRefine ? "Agent starts refining..." : "Agent starts planning...");
 
-                    const visionPrompt = `
-                        Analyze this hand-drawn sketch. 
-                        1. Infer the creative intent.
-                        2. Create a detailed prompt for a photorealistic image generator.
-                        3. CRITICAL: Capture the "Vibe", lighting, and materials.
-                        ${userPrompt ? `USER HINT: "${userPrompt}"` : ""}
-                        
-                        Output JSON: { "thought": "Brief reasoning...", "prompt": "The detailed prompt..." }
-                    `;
+                    let visionPrompt = "";
+                    const visionParts: any[] = [
+                        { inlineData: { mimeType: "image/webp", data: base64Data } } // The New Sketch
+                    ];
 
-                    send("status", "Analyzing sketch semantics...");
+                    if (isRefine) {
+                        const prevBase64 = previousImage.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
+                        visionParts.unshift({ inlineData: { mimeType: "image/png", data: prevBase64 } }); // Previous Image separate
+
+                        visionPrompt = `
+                            You are an expert Art Director.
+                            Image 1: The Previous Artwork (High Quality Render).
+                            Image 2: A New Sketch overlay/layout modification (Rough Sketch).
+
+                            YOUR TASK:
+                            Refine Image 1 to match the *layout/positioning* of Image 2, while STRICTLY PRESERVING the *art style, lighting, materials, and vibe* of Image 1.
+                            
+                            1. Analyze the changes in the sketch (Image 2) compared to the original composition.
+                            2. Create a modified prompt that keeps the original aesthetic but moves objects according to the sketch.
+                            ${userPrompt ? `USER HINT: "${userPrompt}"` : ""}
+                            
+                            Output JSON: { "thought": "Brief reasoning on what changed...", "prompt": "The detailed refined prompt..." }
+                         `;
+                    } else {
+                        visionPrompt = `
+                            Analyze this hand-drawn sketch. 
+                            1. Infer the creative intent.
+                            2. Create a detailed prompt for a photorealistic image generator.
+                            3. CRITICAL: Capture the "Vibe", lighting, and materials.
+                            ${userPrompt ? `USER HINT: "${userPrompt}"` : ""}
+                            
+                            Output JSON: { "thought": "Brief reasoning...", "prompt": "The detailed prompt..." }
+                        `;
+                    }
+
+                    // Add text prompt last
+                    visionParts.unshift({ text: visionPrompt });
+
+                    send("status", isRefine ? "Analyzing layout changes..." : "Analyzing sketch semantics...");
                     const planRes = await googleAI.models.generateContent({
-                        model: "gemini-3-pro-preview",
+                        model: "gemini-2.0-flash-exp",
                         contents: [{
                             role: "user",
-                            parts: [{ text: visionPrompt }, { inlineData: { mimeType: "image/webp", data: base64Data } }]
+                            parts: visionParts
                         }],
                         config: {
                             responseMimeType: "application/json",
-                            thinkingConfig: { thinkingLevel: "high" as any }
+                            // thinkingConfig: { thinkingLevel: "high" as any } 
                         }
                     });
 

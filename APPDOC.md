@@ -59,6 +59,9 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 *   **Description**: Constrains the search space using "physics".
 *   **Logic**:
     *   **Visual Filter**: Scans a 1000-word lexicon for words that match the Start Key, End Key, and intermediate Anchor Points.
+    *   **Transparency Mode**:
+        *   **Source Indicators**: Instantly differentiates between `LOCAL` (emerald) and `API` (amber) predictions in the UI.
+        *   **Visual Feedback**: A dedicated loading spinner ensures the user knows exactly when the AI is "thinking" vs. instant local matches.
 
 ### Layer 5: Pattern Recognition (Strategic Layer)
 *   **File**: `lib/pattern-store.ts`, `app/train/page.tsx`

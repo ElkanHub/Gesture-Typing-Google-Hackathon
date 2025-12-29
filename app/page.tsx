@@ -8,6 +8,7 @@ import path from 'path';
 import Link from "next/link";
 
 import { QuickStartModal } from "@/components/quick-start-modal";
+import { ModeToggle } from "@/components/mode-toggle";
 import { DotPattern } from "@/components/magicui/dot-pattern";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export default async function Home() {
         </div>
 
         <div className="flex items-center gap-4">
+          <ModeToggle />
           <QuickStartModal />
 
           <Link href="/draw" className="group relative">

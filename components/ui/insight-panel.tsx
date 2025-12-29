@@ -13,7 +13,8 @@ export function InsightPanel() {
         predictions,
         ghostWord,
         committedText,
-        debugState
+        debugState,
+        predictionSource
     } = useGesture();
 
     const { lastSequence, anchors, rawPath } = debugState;
@@ -75,7 +76,17 @@ export function InsightPanel() {
 
                 {/* PREDICTIONS */}
                 <div className="flex flex-col gap-2 flex-grow">
-                    <h3 className="font-bold text-xs text-muted-foreground">Predictions Stack</h3>
+                    <h3 className="font-bold text-xs text-muted-foreground flex justify-between items-center">
+                        Predictions Stack
+                        {predictionSource && (
+                            <Badge className={predictionSource === 'API'
+                                ? "bg-amber-500 hover:bg-amber-600 border-none text-[10px] h-5"
+                                : "bg-emerald-500 hover:bg-emerald-600 border-none text-[10px] h-5"
+                            }>
+                                {predictionSource}
+                            </Badge>
+                        )}
+                    </h3>
                     <div className="flex flex-col gap-2">
                         <AnimatePresence mode='popLayout'>
                             {predictions.map((word, i) => (

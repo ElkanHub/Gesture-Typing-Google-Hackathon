@@ -4,6 +4,7 @@ import { useGesture } from "@/components/gesture-context";
 import { Point } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2 } from "lucide-react";
 
 export function Keyboard() {
   const {
@@ -16,7 +17,8 @@ export function Keyboard() {
     calibrationStatus, // Access status
     registerKeyPosition,
     predictions,
-    selectPrediction
+    selectPrediction,
+    isPredicting
   } = useGesture();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,26 +62,45 @@ export function Keyboard() {
     <div ref={containerRef} className="relative w-full max-w-5xl mx-auto border rounded-xl p-4 bg-gray-50 shadow-lg select-none">
 
       {/* Suggestion Bar (Integrated) */}
+      {/* Suggestion Bar (Integrated) */}
       {mode === 'TYPING' && (
-        <div className="absolute -top-16 left-0 right-0 h-14 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl shadow-sm flex items-center px-4 gap-2 overflow-x-auto z-40 transition-all transform animate-in fade-in slide-in-from-bottom-2">
-          {predictions.length === 0 ? (
-            <span className="text-gray-400 text-xs ml-2 italic">Start sliding to type...</span>
-          ) : (
-            predictions.map((word, index) => (
-              <button
-                key={index}
-                onClick={() => selectPrediction(word)}
-                className={`
-                            px-4 py-1.5 rounded-full text-sm font-medium transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap shadow-sm
-                            ${index === 0
-                    ? 'bg-blue-600 text-white shadow-blue-200'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}
-                        `}
+        <div className="absolute -top-16 left-0 right-0 h-14 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl shadow-sm flex items-center px-4 z-40 transition-all transform animate-in fade-in slide-in-from-bottom-2">
+
+          {/* Scrollable Word Area */}
+          <div className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient-right">
+            {predictions.length === 0 ? (
+              <span className="text-gray-400 text-xs ml-2 italic whitespace-nowrap">Start sliding to type...</span>
+            ) : (
+              predictions.map((word, index) => (
+                <button
+                  key={index}
+                  onClick={() => selectPrediction(word)}
+                  className={`
+                              px-4 py-1.5 rounded-full text-sm font-medium transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap shadow-sm flex-shrink-0
+                              ${index === 0
+                      ? 'bg-blue-600 text-white shadow-blue-200'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}
+                          `}
+                >
+                  {word}
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Fixed Loading Indicator (Pinned Right) */}
+          <AnimatePresence>
+            {isPredicting && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex-none ml-2 pl-3 border-l border-gray-200/50 flex items-center justify-center"
               >
-                {word}
-              </button>
-            ))
-          )}
+                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

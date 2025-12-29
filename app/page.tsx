@@ -49,10 +49,10 @@ export default async function Home() {
             <span className="text-primary-foreground font-bold text-xl">⌨️</span>
           </div>
           <div>
-            <p className="font-bold text-lg tracking-tight">
+            <div className="font-bold text-lg tracking-tight flex items-center">
               Gesture Typing
               <Badge variant="secondary" className="ml-2 text-xs">Prototype</Badge>
-            </p>
+            </div>
             <p className="text-xs text-muted-foreground">
               Desktop-first physical gesture experiment
             </p>

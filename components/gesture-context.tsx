@@ -56,6 +56,7 @@ export interface GestureContextType {
 
     // Source Tracking (NEW)
     predictionSource: 'LOCAL' | 'API' | null;
+    isPredicting: boolean;
 }
 
 const GestureContext = createContext<GestureContextType | undefined>(undefined);
@@ -91,10 +92,17 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const [committedText, setCommittedText] = useState('');
     const [predictions, setPredictions] = useState<string[]>([]);
     const [predictionSource, setPredictionSource] = useState<'LOCAL' | 'API' | null>(null);
+    const [isPredicting, setIsPredicting] = useState(false);
 
     // Pattern Recognition State
     const [lastGestureSequence, setLastGestureSequence] = useState<string | null>(null);
     const [pendingWord, setPendingWord] = useState<string | null>(null);
+
+    // ... (rest of state)
+
+    // ... (inside processGesture)
+
+
 
     // Ghost Path State (NEW)
     const [ghostWord, setGhostWord] = useState<string | null>(null);
@@ -452,6 +460,9 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         const candidates = getVisualCandidates(path, anchors, keyMap);
         console.log("Filtered Candidates:", candidates);
 
+        setIsPredicting(true);
+        const startTime = Date.now();
+
         try {
             const response = await fetch('/api/predict', {
                 method: 'POST',
@@ -489,7 +500,13 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         } catch (e) {
             console.error("Prediction failed:", e);
         } finally {
-            setTrajectory([]);
+            const elapsed = Date.now() - startTime;
+            const delay = Math.max(0, 600 - elapsed);
+
+            setTimeout(() => {
+                setIsPredicting(false);
+                setTrajectory([]);
+            }, delay);
         }
     };
 
@@ -676,6 +693,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             committedText,
             predictions,
             predictionSource,
+            isPredicting,
             ghostWord,
             ghostTrajectory,
             selectPrediction,

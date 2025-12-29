@@ -275,12 +275,12 @@ export default function DrawPage() {
                                     className="w-full h-full object-contain animate-in zoom-in-95 duration-500"
                                 />
                                 <div className="absolute bottom-4 right-4 flex gap-2">
-                                    <button
+                                    <Button
                                         onClick={() => handleDownload('gemini-masterpiece.png')}
-                                        className="text-xs font-bold px-4 py-2 bg-white/90 text-black rounded-full hover:bg-white shadow-lg transition-all flex items-center gap-2"
+                                        className="text-xs font-bold px-4 py-2 bg-primary hover:bg-primary/80 shadow-lg transition-all flex items-center gap-2"
                                     >
-                                        <span>⬇️</span> Download
-                                    </button>
+                                        Download
+                                    </Button>
                                 </div>
                             </div>
                         ) : (

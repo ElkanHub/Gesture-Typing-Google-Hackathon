@@ -126,7 +126,6 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
             position={{ x: left, y: top }}
             onStart={handleDragStart}
             onStop={handleDragStop}
-            bounds="parent"
             disabled={interaction !== 'none'} // Disable dragging when rotating/resizing
         >
             <div

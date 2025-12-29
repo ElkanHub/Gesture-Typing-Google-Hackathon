@@ -117,7 +117,7 @@ export default function DrawPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col items-center relative overflow-x-hidden">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-foreground flex flex-col items-center relative overflow-x-hidden">
 
             {/* Background decoration */}
             <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"

@@ -12,8 +12,8 @@ The application is built on **Next.js** (App Router) with **Tailwind CSS**. The 
 -   **Styling**: Tailwind CSS (with Glassmorphism & Modern UI Polish)
 -   **State**: React Context API
 -   **AI (Reasoning)**: Google Gemini 3 Pro Preview (`gemini-3-pro-preview` with Thinking Mode)
--   **AI (Vision)**: Google Gemini 3 Pro Vision (`gemini-3-pro-image-preview`)
--   **AI (Generation)**: Google Imagen 4.0 Fast (`imagen-3.0-generate-001`)
+-   **AI (Vision)**: Google Gemini 3 Pro Vision (`gemini-3-pro-preview`)
+-   **AI (Generation)**: Google Imagen 4.0 Fast (`imagen-4.0-fast-generate-001`)
 -   **Persistence**: LocalStorage (for patterns)
 
 ---
@@ -75,7 +75,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 
 ### The 4-Stage Cycle
 1.  **PLAN (Gemini 3 Pro)**: The agent analyzes the user's sketch and intent. It acts as an "Art Director", devising a strategy (lighting, composition, style) before any image is generated.
-2.  **EXECUTE (Imagen 4 Fast)**: The system generates a draft based on the plan.
+2.  **EXECUTE (Imagen 4 Fast)**: The system generates a draft based on the plan using `imagen-4.0-fast-generate-001`.
 3.  **VERIFY (Gemini 3 Pro Vision)**: The agent *looks* at the generated image and compares it to the original sketch. It critiques the result (e.g., "Did I miss the user's circle? Is the lighting correct?").
 4.  **CORRECT (Self-Healing)**: If the verification score is low (< 8/10), the agent automatically re-prompts the generator with specific corrective instructions (e.g., "Fix the alignment of the red ball").
 

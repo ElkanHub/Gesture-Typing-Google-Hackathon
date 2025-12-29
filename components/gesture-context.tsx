@@ -6,6 +6,7 @@ import { getVisualCandidates } from '@/lib/candidate-filter';
 import { COMMON_WORDS } from '@/lib/dictionary';
 import { Point, KeyMap, GestureMode, Shape } from '@/lib/types';
 import { analyzeShape } from '@/lib/shape-logic';
+import { KEYBOARD_LAYOUTS, LayoutType, detectLayout } from '@/lib/layouts';
 
 // Points, GestureMode, KeyMap moved to lib/types.ts
 
@@ -19,6 +20,7 @@ export interface GestureContextType {
     validationTarget: string | null;
     registerKeyPosition: (char: string, rect: DOMRect) => void;
     isCalibrated: boolean;
+    calibrationStatus: string | null;
 
     // Typing / Gesture
     activeKeys: Set<string>;
@@ -139,18 +141,18 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const isCanvas = target.getAttribute('data-mode') === 'drawing';
 
             if (isCanvas) {
-                console.log("Canvas focused -> DRAWING mode");
                 setMode('DRAWING');
             } else if (isInput) {
-                console.log("Input focused -> TYPING mode");
-                setMode('TYPING'); // Assuming 'TYPING' covers gesture typing
+                // Only switch to TYPING if we are calibrated
+                // If not calibrated, we stay in whatever mode (likely VALIDATION)
+                // Actually, let's allow setting it, but our logic elsewhere will enforce calibration behavior
+                setMode('TYPING');
             }
         };
 
-        // Listen for focusin (bubbles) from document
         document.addEventListener('focusin', handleFocusChange);
         return () => document.removeEventListener('focusin', handleFocusChange);
-    }, []);
+    }, []); // Technically harmless if we don't depend on isCalibrated here, but handleKeyDown needs to be right.
 
     const insertTextIntoActiveElement = (text: string) => {
         const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement;
@@ -227,7 +229,12 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         trajectoryRef.current = trajectory;
     }, [trajectory]);
 
+
     // --- Logic ---
+
+    const validationTarget = !isCalibrated // Always show target if not calibrated
+        ? VALIDATION_SEQUENCE[validationIndex]
+        : null;
 
     const registerKeyPosition = (char: string, rect: DOMRect) => {
         setKeyMap(prev => {
@@ -247,19 +254,16 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
         });
     };
 
-    // Auto-Calibrate when map is full
-    useEffect(() => {
-        if (isCalibrated) return;
-        const registeredCount = Object.keys(keyMap).length;
-        // Basic check: If we have > 26 keys (A-Z), we assume map is ready.
-        if (registeredCount >= 26) {
-            console.log("Calibration Complete (Auto):", registeredCount, "keys");
-            setIsCalibrated(true);
-            // Only switch to TYPING if we are currently in VALIDATION (don't overwrite DRAWING)
-            setMode(prev => prev === 'VALIDATION' ? 'TYPING' : prev);
-            setValidationIndex(0);
-        }
-    }, [keyMap, isCalibrated]);
+    // Layout Detection State
+    const [detectedLayout, setDetectedLayout] = useState<LayoutType | null>(null);
+    const [calibrationStatus, setCalibrationStatus] = useState<string | null>(null);
+    const [calibrationStep, setCalibrationStep] = useState(0); // 0: Start, 1: Detect
+
+    // Auto-Calibrate REMOVED - We wait for user interaction to confirm layout
+    // unless we have a saved one, which is handled by the first useEffect.
+
+    // Allow manual skip/confirm if needed? For now, we rely on the first few keystrokes.
+
 
     const generateGhostPath = (word: string): Point[] => {
         if (!word) return [];
@@ -556,7 +560,50 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             const key = e.key.toLowerCase();
             const originalKey = e.key;
 
-            // Handle TAB: Ghost Word -> Autocomplete Step
+            // Special: If NOT Calibrated, intercept EVERYTHING for calibration
+            if (!isCalibrated) {
+                // --- CALIBRATION & LAYOUT DETECTION ---
+                const targetChar = validationTarget?.toLowerCase();
+
+                if (!targetChar) return; // Should not happen if logic is correct
+
+                const inputChar = key.toLowerCase();
+
+                // 1. Detect Layout (Background)
+                if (!detectedLayout) {
+                    if (inputChar !== targetChar) {
+                        const detected = detectLayout(targetChar, inputChar);
+                        if (detected) {
+                            console.log(`Layout Signal: ${detected}`);
+                            setDetectedLayout(detected);
+                        }
+                    } else if (targetChar === 'q' && inputChar === 'q') {
+                        setDetectedLayout('QWERTY');
+                    }
+                }
+
+                // 2. Advance Sequence
+                if (validationIndex < VALIDATION_SEQUENCE.length - 1) {
+                    setValidationIndex(prev => prev + 1);
+                } else {
+                    // 3. Completion
+                    const finalLayout = detectedLayout || 'QWERTY';
+                    console.log(`Calibration Complete. Layout: ${finalLayout}`);
+
+                    setCalibrationStatus(`Success! ${finalLayout} Layout Registered.`);
+
+                    setTimeout(() => {
+                        setIsCalibrated(true);
+                        setMode('TYPING');
+                        setValidationIndex(0);
+                        setCalibrationStatus(null);
+                    }, 2000);
+                }
+                return; // STOP here. Do not process as typing.
+            }
+
+            // Normal Handling (Calibrated)
+            // Re-implement the standard checks for Typing Mode
             if (e.key === 'Tab') {
                 if (ghostWord) {
                     e.preventDefault();
@@ -565,29 +612,22 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                     setGhostTrajectory([]);
                     return;
                 }
-
                 if (predictedCompletion) {
                     e.preventDefault();
-                    // Regex to find next word (including preceding whitespace)
                     const match = predictedCompletion.match(/^(\s*\S+)([\s\S]*)/);
                     if (match) {
-                        const nextWord = match[1];
-                        const remainder = match[2];
-                        setCommittedText(prev => prev + nextWord);
-                        setPredictedCompletion(remainder || null);
+                        setCommittedText(prev => prev + match[1]);
+                        setPredictedCompletion(match[2] || null);
                     }
                     return;
                 }
             }
 
-            // Handle ENTER for Autocomplete
-            if (e.key === 'Enter') {
-                if (predictedCompletion) {
-                    e.preventDefault();
-                    setCommittedText(prev => prev + predictedCompletion);
-                    setPredictedCompletion(null);
-                    return;
-                }
+            if (e.key === 'Enter' && predictedCompletion) {
+                e.preventDefault();
+                setCommittedText(prev => prev + predictedCompletion);
+                setPredictedCompletion(null);
+                return;
             }
 
             if (e.key === ' ') {
@@ -603,8 +643,6 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            if (e.key.length > 1 && e.key !== 'Backspace') return;
-
             if (e.key === 'Backspace') {
                 setCommittedText(prev => prev.slice(0, -1));
                 setLastGestureSequence(null);
@@ -615,13 +653,16 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
+            if (e.key.length > 1) return;
+
             setActiveKeys(prev => {
                 const newSet = new Set(prev);
                 newSet.add(key);
                 return newSet;
             });
 
-            if ((mode === 'TYPING' || mode === 'DRAWING' || mode === 'TRAINING') && isCalibrated) {
+            if (mode === 'TYPING' || mode === 'DRAWING' || mode === 'TRAINING') {
+                // ... existing gesture logic
                 if (trajectory.length === 0 && lastGestureSequence && pendingWord) {
                     console.log("Implicitly confirming:", pendingWord);
                     PatternStore.learnPattern(lastGestureSequence, pendingWord);
@@ -631,9 +672,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
 
                 const coords = keyMap[key];
                 if (coords) {
-                    // Prevent native character insertion to avoid double-typing (raw + predicted)
                     e.preventDefault();
-
                     const point: Point = {
                         x: coords.x,
                         y: coords.y,
@@ -641,9 +680,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
                         key,
                         originalKey
                     };
-
                     setTrajectory(prev => [...prev, point]);
-
                     if (timerRef.current) clearTimeout(timerRef.current);
                     timerRef.current = setTimeout(() => {
                         processGesture();
@@ -661,19 +698,18 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             });
         };
 
+        // ... listeners
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
-
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord, predictedCompletion]);
+        }
+
+    }, [mode, isCalibrated, keyMap, validationIndex, lastGestureSequence, pendingWord, ghostWord, predictedCompletion, detectedLayout, validationTarget]);
 
 
-    const validationTarget = !isCalibrated && mode === 'VALIDATION'
-        ? VALIDATION_SEQUENCE[validationIndex]
-        : null;
+
 
     const selectPrediction = (word: string) => {
         if (pendingWord && committedText.endsWith(pendingWord)) {
@@ -708,6 +744,7 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
             validationTarget,
             registerKeyPosition,
             isCalibrated,
+            calibrationStatus, // Expose status
             activeKeys,
             trajectory,
             committedText,

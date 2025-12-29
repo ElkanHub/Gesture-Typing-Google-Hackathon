@@ -33,6 +33,14 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Anti-Ghosting**: Intercepts native key events for mapped keys to prevent "double typing".
     *   **Visuals**: Renders a premium, glassmorphic suggestion bar and keyboard visualization.
 
+### Layer 1.5: Smart Calibration & Layout Detection
+*   **Feature**: Automatic Keyboard Layout Sensing.
+*   **Logic**:
+    *   The system pauses auto-calibration and waits for user interaction.
+    *   **Signature Matching**: Compares the "Target Key" (what the screen shows) vs. "Input Key" (what the browser receives).
+    *   **Detection**: Instantly identifies layouts (e.g., Pressing 'A' when 'Q' is shown -> AZERTY).
+    *   **Remapping**: Automatically adjusts the `KeyMap` so that physical keystrokes align with the visual QWERTY layout, enabling seamless gesture typing for non-QWERTY users without manual configuration.
+
 ### Layer 2: Hybrid Input Logic (Literal vs. Gesture)
 *   **File**: `components/gesture-context.tsx`
 *   **Logic**:

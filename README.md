@@ -18,6 +18,7 @@ Instead of typing every letter, users can slide their fingers across the keys. T
 ## ✨ Key Features
 
 -   **Physical Gesture Support**: Swipe across your mechanical or laptop keyboard. The system maps key positions to a virtual coordinate space.
+    -   **Smart Layout Detection**: Automatically detects QWERTY, AZERTY, QWERTZ, etc., and remaps gestures instantly.
 -   **6-Layer Decoding Engine**:
     -   Anti-ghosting & Calibration
     -   Hybrid Input (Tap vs. Swipe)
@@ -28,7 +29,7 @@ Instead of typing every letter, users can slide their fingers across the keys. T
 -   **Generative Art Studio**:
     -   Draw shapes with your keyboard in the `/draw` mode.
     -   **Gemini 3 Pro (Reasoning)** analyzes your intent.
-    -   **Imagen 4.0 Fast** generates photorealistic masterpieces.
+    -   **Imagen 4.0 Fast (Nano Banana)** generates photorealistic masterpieces.
     -   **Iterative Refinement**: Move shapes to adjust the layout of the generated image while keeping the consistent style.
 -   **Premium UI/UX**:
     -   Glassmorphic headers and floating panels.
@@ -53,8 +54,8 @@ This project moves beyond simple API calls by implementing a **Self-Correcting A
 -   **AI Models**:
     -   Text: `gemini-3-flash-preview`
     -   Reasoning: `gemini-3-pro-preview`
-    -   Vision: `gemini-3-pro-image-preview`
-    -   Image: `imagen-3.0-generate-001` (Imagen 4 Fast)
+    -   Vision: `gemini-3-pro-preview`
+    -   Image: `imagen-4.0-fast-generate-001` (Nano Banana)
 -   **Storage**: LocalStorage (Patterns)
 
 ## 🚀 Getting Started
@@ -92,9 +93,11 @@ This project moves beyond simple API calls by implementing a **Self-Correcting A
 
 ## 🎮 Usage Guide
 
-### 1. Calibration (Important!)
-*   On the home page, type the "Validation Keys" shown on the floating keyboard (e.g., `Q`, `P`, `Z`, `M`).
-*   This calibrates the engine to your specific physical keyboard layout.
+### 1. Calibration (Smart)
+*   On the home page, the system will ask you to press specific keys (e.g., `Q`).
+*   **Simply press the corresponding key on your physical keyboard.**
+*   The system detects if you use QWERTY, AZERTY, etc., and instantly adapts.
+*   Once calibrated, the virtual coordinate space is mapped to your distinct layout.
 
 ### 2. Gesture Typing
 *   Focus on the main text area.

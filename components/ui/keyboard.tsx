@@ -12,7 +12,8 @@ export function Keyboard() {
     validationTarget,
     activeKeys,
     trajectory,
-    ghostTrajectory, // NEW: Access Ghost Trajectory
+    ghostTrajectory,
+    calibrationStatus, // Access status
     registerKeyPosition,
     predictions,
     selectPrediction
@@ -85,7 +86,7 @@ export function Keyboard() {
       {/* Visual Trajectory Overlay */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-50 overflow-visible">
         {/* Ghost Path (Bottom Layer) */}
-        {containerRect && ghostTrajectory.length > 1 && (
+        {containerRect && ghostTrajectory && ghostTrajectory.length > 1 && (
           <path
             d={getPathD(ghostTrajectory)}
             fill="none"
@@ -147,8 +148,23 @@ export function Keyboard() {
       {/* Legend / Status */}
       <div className="mt-4 text-xs text-center text-gray-400">
         Status: {mode} ({activeKeys.size} keys active)
-        {ghostTrajectory.length > 0 && <span className="text-cyan-500 ml-2 font-bold animate-pulse"> • Ghost Guide Active (Press Tab)</span>}
+        {ghostTrajectory && ghostTrajectory.length > 0 && <span className="text-cyan-500 ml-2 font-bold animate-pulse"> • Ghost Guide Active (Press Tab)</span>}
       </div>
+
+      {/* Calibration Success Overlay */}
+      <AnimatePresence>
+        {calibrationStatus && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-4 rounded-xl shadow-2xl z-50 flex flex-col items-center border border-green-400"
+          >
+            <div className="text-2xl mb-2">✅</div>
+            <div className="font-bold text-lg">{calibrationStatus}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

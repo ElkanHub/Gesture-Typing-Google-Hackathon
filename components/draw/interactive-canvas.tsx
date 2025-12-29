@@ -151,22 +151,22 @@ function DraggableShape({ shape, scale, isSelected, onSelect, onChange, onDelete
                     }}
                 >
                     {/* Visual Border */}
-                    <div className={`w-full h-full relative ${isSelected ? 'border-2 border-blue-500' : 'hover:border-2 hover:border-gray-300'}`}>
+                    <div className={`w-full h-full relative ${isSelected ? 'border-2 border-primary' : 'hover:border-2 hover:border-muted-foreground/30'}`}>
 
                         {/* Shape Rendering */}
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible block">
                             <g transform={`rotate(${0} 50 50)`}> {/* Inner rotation if needed */}
                                 {shape.type === 'circle' && (
-                                    <ellipse cx="50" cy="50" rx="48" ry="48" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-blue-500 fill-blue-500/10" : "text-black dark:text-white fill-transparent"} />
+                                    <ellipse cx="50" cy="50" rx="48" ry="48" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-primary fill-primary/10" : "text-foreground fill-transparent"} />
                                 )}
                                 {shape.type === 'square' && (
-                                    <rect x="2" y="2" width="96" height="96" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-blue-500 fill-blue-500/10" : "text-black dark:text-white fill-transparent"} />
+                                    <rect x="2" y="2" width="96" height="96" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-primary fill-primary/10" : "text-foreground fill-transparent"} />
                                 )}
                                 {shape.type === 'triangle' && (
-                                    <polygon points="50,2 98,98 2,98" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-blue-500 fill-blue-500/10" : "text-black dark:text-white fill-transparent"} />
+                                    <polygon points="50,2 98,98 2,98" fill="none" stroke="currentColor" strokeWidth="4" className={isSelected ? "text-primary fill-primary/10" : "text-foreground fill-transparent"} />
                                 )}
                                 {shape.type === 'line' && (
-                                    <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeWidth="6" className={isSelected ? "text-blue-500" : "text-black dark:text-white"} />
+                                    <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeWidth="6" className={isSelected ? "text-primary" : "text-foreground"} />
                                 )}
                             </g>
                         </svg>
@@ -252,9 +252,9 @@ export const InteractiveCanvas = forwardRef<HTMLDivElement>((props, ref) => {
             tabIndex={0}
             data-mode="drawing"
             onClick={() => setSelectedId(null)} // Deselect on background click
-            className="relative w-full h-[600px] bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl overflow-hidden shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="relative w-full h-[600px] bg-background border-2 border-dashed border-border rounded-xl overflow-hidden shadow-inner focus:outline-none focus:ring-2 focus:ring-primary transition-all"
         >
-            <div className="absolute top-4 right-4 text-gray-400 text-sm font-mono pointer-events-none select-none text-right z-0">
+            <div className="absolute top-4 right-4 text-muted-foreground text-sm font-mono pointer-events-none select-none text-right z-0">
                 <p>Interactive Canvas Active</p>
                 <p className="text-xs opacity-50">Shapes: {shapes.length}</p>
             </div>
@@ -272,7 +272,7 @@ export const InteractiveCanvas = forwardRef<HTMLDivElement>((props, ref) => {
             ))}
 
             {shapes.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground pointer-events-none">
                     <div className="text-center">
                         <p className="text-xl">Draw on your keyboard</p>
                         <p className="text-sm opacity-60">Triangles, Squares, Circles, Lines</p>

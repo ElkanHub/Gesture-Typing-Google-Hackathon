@@ -6,6 +6,10 @@ import { InteractiveCanvas } from "@/components/draw/interactive-canvas";
 import { Keyboard } from "@/components/ui/keyboard";
 import Link from "next/link";
 import { ArrowLeft, Sparkles, Brain, CheckCircle, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default function DrawPage() {
     const { setMode, shapes, clearCanvas } = useGesture();
@@ -32,16 +36,6 @@ export default function DrawPage() {
         if (shapes.length === 0 || !canvasRef.current) return;
 
         setIsGenerating(true);
-        // Only clear generated art if starting fresh, otherwise keep it for reference until new one arrives? 
-        // Actually, for better UX in refine, we might want to keep showing the old one until the new one is ready, 
-        // but the current UI shows a loader. Let's keep it simple: clear it or maybe specific state?
-        // Let's clear it to show progress.
-        // setGeneratedArt(null); 
-        // wait, if we clear it, the Refine button disappears because it checks specific conditional.
-        // We should probably NOT clear generatedArt immediately if refreshing, or use a temp state.
-        // However, the UI buttons logic relies on 'generatedArt'.
-        // If I clear it, it goes back to 'Activate Creative Agent' mode visually.
-        // So I should NOT setGeneratedArt(null) here if refining.
         if (!isRefine) setGeneratedArt(null);
 
         setThoughts([]);
@@ -123,7 +117,7 @@ export default function DrawPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#050505] text-gray-900 dark:text-gray-100 flex flex-col items-center relative overflow-x-hidden">
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center relative overflow-x-hidden">
 
             {/* Background decoration */}
             <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"
@@ -131,15 +125,20 @@ export default function DrawPage() {
             </div>
 
             {/* Header */}
-            <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-white/50 dark:border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-sm mb-6 sticky top-4 mt-4 mx-4">
-                <Link href="/" className="flex items-center gap-2 group text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-                    <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="font-medium">Back</span>
-                </Link>
+            <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-border/50 bg-background/70 backdrop-blur-xl shadow-sm mb-6 sticky top-4 mt-4 mx-4">
                 <div className="flex items-center gap-4">
+                    <Link href="/" className="flex items-center gap-2 group text-muted-foreground hover:text-foreground transition-colors">
+                        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                        <span className="font-medium">Back</span>
+                    </Link>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <ModeToggle />
                     {generatedArt ? (
                         <>
-                            <button
+                            <Button
+                                variant="secondary"
                                 onClick={() => {
                                     clearCanvas();
                                     setGeneratedArt(null);
@@ -147,15 +146,15 @@ export default function DrawPage() {
                                     setCurrentStatus("");
                                     setUserPrompt("");
                                 }}
-                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 dark:bg-zinc-800 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                                className="gap-2"
                             >
                                 <Sparkles size={16} />
                                 New Artwork
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => handleGenerate(true)}
                                 disabled={isGenerating}
-                                className="group relative px-6 py-2 rounded-lg font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                                className="group relative font-bold text-white shadow-lg transition-all overflow-hidden border-none"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 group-hover:scale-105 transition-transform"></div>
                                 <div className="relative flex items-center gap-2">
@@ -170,20 +169,22 @@ export default function DrawPage() {
                                         </>
                                     )}
                                 </div>
-                            </button>
+                            </Button>
                         </>
                     ) : (
                         <>
-                            <button
+                            <Button
+                                variant="destructive"
                                 onClick={clearCanvas}
-                                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                                size="sm"
+                                className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border-transparent"
                             >
                                 Clear
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => handleGenerate(false)}
                                 disabled={isGenerating || shapes.length === 0}
-                                className="group relative px-6 py-2 rounded-lg font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                                className="group relative font-bold text-white shadow-lg transition-all overflow-hidden border-none"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 group-hover:scale-105 transition-transform"></div>
                                 <div className="relative flex items-center gap-2">
@@ -198,7 +199,7 @@ export default function DrawPage() {
                                         </>
                                     )}
                                 </div>
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>
@@ -208,10 +209,10 @@ export default function DrawPage() {
 
                 {/* LEFT: Canvas (5 cols) */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
-                    <div className="p-1 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800">
+                    <div className="p-1 bg-card rounded-2xl shadow-sm border border-border">
                         <InteractiveCanvas ref={canvasRef} />
                     </div>
-                    <div className="space-y-2 bg-white dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800/50">
+                    <div className="space-y-2 bg-card p-4 rounded-xl border border-border">
                         <label htmlFor="userPrompt" className="text-sm font-medium opacity-70 block mb-2">
                             Agent Hint (Context)
                         </label>
@@ -221,20 +222,20 @@ export default function DrawPage() {
                             value={userPrompt}
                             onChange={(e) => setUserPrompt(e.target.value)}
                             placeholder="e.g. A cyberpunk street in rain..."
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                            className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
                         />
                     </div>
                 </div>
 
                 {/* MIDDLE: Agent Brain (3 cols) */}
-                <div className="lg:col-span-3 flex flex-col h-[600px] bg-white dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex items-center gap-2 bg-gray-50/50 dark:bg-zinc-950/30">
-                        <Brain size={18} className="text-purple-500" />
+                <div className="lg:col-span-3 flex flex-col h-[600px] bg-card/80 backdrop-blur-md rounded-2xl border border-border shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-border flex items-center gap-2 bg-muted/30">
+                        <Brain size={18} className="text-primary" />
                         <h3 className="font-semibold text-sm">Agent "Thought" Stream</h3>
                     </div>
                     <div ref={thoughtsHelperRef} className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs custom-scrollbar">
                         {thoughts.length === 0 && !isGenerating && (
-                            <div className="text-center text-gray-400 mt-20">
+                            <div className="text-center text-muted-foreground mt-20">
                                 <p>Waiting for input...</p>
                             </div>
                         )}
@@ -243,12 +244,12 @@ export default function DrawPage() {
                                 <div className="mt-0.5 shrink-0">
                                     {item.type === 'status' && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
                                     {item.type === 'thought' && <div className="w-2 h-2 rounded-full bg-purple-500" />}
-                                    {item.type === 'error' && <div className="w-2 h-2 rounded-full bg-red-500" />}
+                                    {item.type === 'error' && <div className="w-2 h-2 rounded-full bg-destructive" />}
                                 </div>
                                 <div>
-                                    <p className={`leading-relaxed ${item.type === 'status' ? 'text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider text-[10px]' :
-                                        item.type === 'error' ? 'text-red-500' :
-                                            'text-gray-700 dark:text-gray-300'
+                                    <p className={`leading-relaxed ${item.type === 'status' ? 'text-muted-foreground font-semibold uppercase tracking-wider text-[10px]' :
+                                        item.type === 'error' ? 'text-destructive' :
+                                            'text-foreground'
                                         }`}>
                                         {item.content}
                                     </p>
@@ -256,7 +257,7 @@ export default function DrawPage() {
                             </div>
                         ))}
                         {isGenerating && (
-                            <div className="flex gap-2 items-center text-gray-400 animate-pulse text-xs ml-5">
+                            <div className="flex gap-2 items-center text-muted-foreground animate-pulse text-xs ml-5">
                                 <span>...</span>
                             </div>
                         )}
@@ -265,7 +266,7 @@ export default function DrawPage() {
 
                 {/* RIGHT: Result (5 cols) */}
                 <div className="lg:col-span-5 flex flex-col gap-4">
-                    <div className="w-full h-[600px] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-inner flex items-center justify-center overflow-hidden p-4 relative group">
+                    <div className="w-full h-[600px] bg-card border border-border rounded-2xl shadow-inner flex items-center justify-center overflow-hidden p-4 relative group">
                         {generatedArt ? (
                             <div className="relative w-full h-full">
                                 <img
@@ -283,7 +284,7 @@ export default function DrawPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center text-gray-400 opacity-40">
+                            <div className="text-center text-muted-foreground opacity-40">
                                 <div className="text-6xl mb-4 grayscale">🎨</div>
                                 <p className="font-medium">Canvas Awaiting Agent</p>
                             </div>
@@ -296,7 +297,7 @@ export default function DrawPage() {
             {/* Keyboard Control Deck */}
             <div className="w-full max-w-3xl mx-auto opacity-80 hover:opacity-100 transition-opacity mt-12 mb-8 z-10">
                 <Keyboard />
-                <p className="text-center text-xs text-gray-400 mt-2 font-mono">
+                <p className="text-center text-xs text-muted-foreground mt-2 font-mono">
                     MODE: DRAWING // Mapped
                 </p>
             </div>

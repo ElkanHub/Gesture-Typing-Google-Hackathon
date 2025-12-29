@@ -8,6 +8,10 @@ import path from 'path';
 import Link from "next/link";
 
 import { QuickStartModal } from "@/components/quick-start-modal";
+import { DotPattern } from "@/components/magicui/dot-pattern";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 async function getDocContent() {
   try {
@@ -23,12 +27,16 @@ export default async function Home() {
   const docContent = await getDocContent();
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 lg:p-8 bg-gray-50 dark:bg-[#050505] selection:bg-blue-500 selection:text-white relative overflow-x-hidden">
+    <main className="flex min-h-screen flex-col items-center p-4 lg:p-8 bg-background relative overflow-x-hidden">
 
-      {/* Background decoration */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"
-        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }}>
-      </div>
+      {/* Magic UI Background */}
+      <div className="z-0 pointer-events-none absolute inset-0 flex items-center justify-center bg-white [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black"></div>
+      <DotPattern
+        className={cn(
+          "[mask-image:radial-gradient(900px_circle_at_center,white,transparent)]",
+          "opacity-50 text-gray-300 dark:text-gray-800"
+        )}
+      />
 
       {/* App Documentation Viewer */}
       <AppDocModal content={docContent} />
@@ -36,25 +44,30 @@ export default async function Home() {
       {/* Modern Glass Header */}
       <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-white/50 dark:border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-sm mb-8 sticky top-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center">
-            <span className="text-white dark:text-black font-bold text-lg">⌨️</span>
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-md">
+            <span className="text-primary-foreground font-bold text-xl">⌨️</span>
           </div>
-          <p className="font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-            Gesture Typing - Prototype 
-            <span className="text-xs text-gray-500 dark:text-gray-400">  This app is meant to be used on a PC with a physical keyboard</span>
-          </p>
+          <div>
+            <p className="font-bold text-lg tracking-tight">
+              Gesture Typing
+              <Badge variant="secondary" className="ml-2 text-xs">Prototype</Badge>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Desktop-first physical gesture experiment
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
           <QuickStartModal />
 
           <Link href="/draw" className="group relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-200"></div>
-            <div className="relative flex items-center px-4 py-2 bg-white dark:bg-black rounded-lg leading-none cursor-pointer">
-              <span className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-purple-600 group-hover:from-pink-500 group-hover:to-purple-500 transition-all">
+            <Button variant="outline" className="border-pink-500/20 hover:border-pink-500/50 hover:bg-pink-50 dark:hover:bg-pink-950/20 text-foreground group relative overflow-hidden">
+              <span className="relative z-10 bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent font-bold group-hover:from-pink-500 group-hover:to-purple-500 transition-all">
                 Draw Mode
               </span>
-            </div>
+              <span className="absolute inset-0 bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/10 dark:to-purple-900/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Button>
           </Link>
         </div>
       </header>
@@ -78,11 +91,11 @@ export default async function Home() {
 
       </div>
 
-      {/* Guide Overlay for Calibration - Made more subtle */}
-      <div className="fixed bottom-6 right-6 z-40 opacity-50 hover:opacity-100 transition-opacity">
-        <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur border border-gray-200 dark:border-zinc-800 rounded-full px-4 py-2 text-xs font-medium text-gray-500 shadow-sm">
+      {/* Guide Overlay for Calibration */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Badge variant="outline" className="bg-background/80 backdrop-blur text-muted-foreground">
           Tip: Press 'Validation Keys' to calibrate map
-        </div>
+        </Badge>
       </div>
     </main>
   );

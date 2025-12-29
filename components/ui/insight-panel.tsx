@@ -2,6 +2,8 @@
 
 import { useGesture } from "@/components/gesture-context";
 import { motion, AnimatePresence } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export function InsightPanel() {
     const {
@@ -17,96 +19,101 @@ export function InsightPanel() {
     const { lastSequence, anchors, rawPath } = debugState;
 
     return (
-        <div className="w-80 flex flex-col gap-4 p-4 border-l border-gray-200 bg-white/50 backdrop-blur-sm h-[calc(100vh-8rem)] overflow-y-auto font-mono text-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                <h2 className="font-bold text-gray-700 uppercase tracking-wider">Engine State</h2>
-                <div className={`w-2 h-2 rounded-full ${mode === 'TYPING' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-            </div>
+        <Card className="w-80 h-[calc(100vh-8rem)] overflow-y-auto border-l rounded-none border-y-0 border-r-0 bg-background/50 backdrop-blur-sm shadow-none">
+            <CardHeader className="pb-2 border-b">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider">Engine State</CardTitle>
+                    <div className={`w-2 h-2 rounded-full ${mode === 'TYPING' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+                </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 p-4">
 
-            {/* STATUS CARD */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex flex-col gap-1">
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Mode:</span>
-                    <span className="font-bold text-blue-600">{mode}</span>
+                {/* STATUS CARD */}
+                <div className="flex flex-col gap-2 text-sm">
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Mode:</span>
+                        <Badge variant="outline" className="font-mono text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-400">{mode}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Calibrated:</span>
+                        <Badge variant={isCalibrated ? "default" : "secondary"} className={isCalibrated ? "bg-green-600 hover:bg-green-700" : ""}>
+                            {isCalibrated ? "YES" : "NO"}
+                        </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Active Keys:</span>
+                        <span className="font-mono font-bold">{activeKeys.size}</span>
+                    </div>
                 </div>
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Calibrated:</span>
-                    <span className={isCalibrated ? "text-green-600" : "text-yellow-600"}>
-                        {isCalibrated ? "YES" : "NO"}
-                    </span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Active Keys:</span>
-                    <span className="font-bold text-gray-800">{activeKeys.size}</span>
-                </div>
-            </div>
 
-            {/* LIVE TRAJECTORY */}
-            <div className="flex flex-col gap-2">
-                <h3 className="font-bold text-gray-600 flex justify-between items-center">
-                    Latest Trajectory
-                    <span className="text-[10px] bg-gray-200 px-1 rounded text-gray-500">
-                        {rawPath.length} pts
-                    </span>
-                </h3>
-                <div className="bg-zinc-900 text-green-400 p-3 rounded-lg font-mono text-[10px] overflow-hidden min-h-[60px] flex flex-col justify-end">
-                    {activeKeys.size > 0 && (
-                        <div className="animate-pulse">Recording...</div>
-                    )}
-                    {lastSequence && (
-                        <div className="break-all">
-                            <span className="text-gray-500">raw: </span>
-                            {lastSequence}
-                        </div>
-                    )}
-                    {anchors.length > 0 && (
-                        <div>
-                            <span className="text-gray-500">anchors: </span>
-                            <span className="text-yellow-400">{anchors.join('-')}</span>
-                        </div>
-                    )}
+                {/* LIVE TRAJECTORY */}
+                <div className="flex flex-col gap-2">
+                    <h3 className="font-bold text-xs text-muted-foreground flex justify-between items-center">
+                        Latest Trajectory
+                        <Badge variant="secondary" className="text-[10px] h-5">
+                            {rawPath.length} pts
+                        </Badge>
+                    </h3>
+                    <div className="bg-zinc-950 text-green-400 p-3 rounded-lg font-mono text-[10px] overflow-hidden min-h-[60px] flex flex-col justify-end border border-zinc-800 shadow-inner">
+                        {activeKeys.size > 0 && (
+                            <div className="animate-pulse">Recording...</div>
+                        )}
+                        {lastSequence && (
+                            <div className="break-all">
+                                <span className="text-zinc-500">raw: </span>
+                                {lastSequence}
+                            </div>
+                        )}
+                        {anchors.length > 0 && (
+                            <div>
+                                <span className="text-zinc-500">anchors: </span>
+                                <span className="text-yellow-400">{anchors.join('-')}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* PREDICTIONS */}
-            <div className="flex flex-col gap-2 flex-grow">
-                <h3 className="font-bold text-gray-600">Predictions Stack</h3>
-                <div className="flex flex-col gap-1">
-                    <AnimatePresence mode='popLayout'>
-                        {predictions.map((word, i) => (
-                            <motion.div
-                                key={word + i}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0 }}
-                                className={`p-2 rounded border flex justify-between items-center ${i === 0 ? 'bg-blue-50 border-blue-200 text-blue-900 font-bold' : 'bg-white border-gray-100 text-gray-600'}`}
-                            >
-                                <span>{word}</span>
-                                <span className="text-[10px] opacity-50">#{i + 1}</span>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                    {predictions.length === 0 && (
-                        <div className="text-gray-400 italic text-center py-4">Waiting for input...</div>
-                    )}
+                {/* PREDICTIONS */}
+                <div className="flex flex-col gap-2 flex-grow">
+                    <h3 className="font-bold text-xs text-muted-foreground">Predictions Stack</h3>
+                    <div className="flex flex-col gap-2">
+                        <AnimatePresence mode='popLayout'>
+                            {predictions.map((word, i) => (
+                                <motion.div
+                                    key={word + i}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0 }}
+                                >
+                                    <div className={`p-2 rounded-md border text-sm flex justify-between items-center shadow-sm ${i === 0 ? 'bg-primary/10 border-primary/20 text-primary font-bold' : 'bg-card border-border text-card-foreground'}`}>
+                                        <span>{word}</span>
+                                        <span className="text-[10px] opacity-50">#{i + 1}</span>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                        {predictions.length === 0 && (
+                            <div className="text-muted-foreground italic text-xs text-center py-4 border border-dashed rounded-md">Waiting for input...</div>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* GHOST PATH */}
-            <div className="mt-auto">
-                <h3 className="font-bold text-gray-600 mb-1">Ghost Suggestion</h3>
-                <div className={`p-3 rounded-lg border transition-colors duration-300 ${ghostWord ? 'bg-cyan-50 border-cyan-200' : 'bg-gray-50 border-gray-100'}`}>
-                    {ghostWord ? (
-                        <div className="flex justify-between items-center">
-                            <span className="text-cyan-700 font-bold text-lg">{ghostWord}</span>
-                            <span className="text-[10px] text-cyan-500 border border-cyan-200 px-1 rounded bg-white">TAB</span>
-                        </div>
-                    ) : (
-                        <span className="text-gray-400 italic">None</span>
-                    )}
+                {/* GHOST PATH */}
+                <div className="mt-auto pt-4 border-t">
+                    <h3 className="font-bold text-xs text-muted-foreground mb-2">Ghost Suggestion</h3>
+                    <div className={`p-3 rounded-lg border transition-colors duration-300 ${ghostWord ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-muted/50 border-border'}`}>
+                        {ghostWord ? (
+                            <div className="flex justify-between items-center">
+                                <span className="text-cyan-600 dark:text-cyan-400 font-bold text-sm">{ghostWord}</span>
+                                <Badge variant="outline" className="text-[10px] border-cyan-200 text-cyan-500 bg-background">TAB</Badge>
+                            </div>
+                        ) : (
+                            <span className="text-muted-foreground italic text-xs">None</span>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-        </div>
+            </CardContent>
+        </Card>
     );
 }

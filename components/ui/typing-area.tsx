@@ -2,6 +2,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useGesture } from '@/components/gesture-context';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 export function TypingArea() {
     const { committedText, clearText, predictedCompletion, setMode } = useGesture();
@@ -12,29 +15,37 @@ export function TypingArea() {
         setMode('TYPING');
     }, [setMode]);
 
-    // Auto-scroll removed per user request
-    // useEffect(() => {
-    //    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    // }, [committedText]);
-
     return (
-        <div className="flex flex-col gap-2 w-full">
-            <div className="flex justify-between items-center px-2">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest">Typing Area</h2>
-                <button onClick={clearText} className="text-xs text-red-400 hover:text-red-500">Clear</button>
-            </div>
+        <Card className="w-full relative overflow-hidden border-border/50 bg-background/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+                    Typing Area
+                </CardTitle>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearText}
+                    className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                    Clear
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <div
+                    className="w-full bg-background/50 p-2 text-2xl font-mono focus:outline-none min-h-[150px] rounded-md overflow-y-auto max-h-[300px] whitespace-pre-wrap break-words"
+                >
+                    {/* Border Beam Effect */}
+                    <BorderBeam size={100} duration={8} delay={9} />
 
-            <div
-                className="w-full bg-white dark:bg-black p-6 text-2xl font-mono focus:outline-none min-h-[150px] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-y-auto max-h-[300px]"
-            >
-                {committedText || <span className="text-gray-400 italic">Gesture typing output will appear here...</span>}
-                {predictedCompletion && (
-                    <span className="text-gray-400 opacity-60 bg-clip-text animate-pulse">
-                        {predictedCompletion} <span className="text-xs align-super bg-gray-100 dark:bg-zinc-800 rounded px-1 border border-gray-300 dark:border-zinc-700 not-italic">ENTER / TAB</span>
-                    </span>
-                )}
-                <div ref={endRef} />
-            </div>
-        </div>
+                    {committedText || <span className="text-muted-foreground/50 italic">Gesture typing output will appear here...</span>}
+                    {predictedCompletion && (
+                        <span className="text-muted-foreground/60 opacity-60 bg-clip-text animate-pulse">
+                            {predictedCompletion} <span className="text-xs align-super bg-secondary text-secondary-foreground rounded px-1 border border-border not-italic">TAB</span>
+                        </span>
+                    )}
+                    <div ref={endRef} />
+                </div>
+            </CardContent>
+        </Card>
     );
 }

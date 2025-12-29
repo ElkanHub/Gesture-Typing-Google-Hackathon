@@ -73,29 +73,24 @@ export const GestureProvider = ({ children }: { children: ReactNode }) => {
     const [validationIndex, setValidationIndex] = useState(0);
     const [isCalibrated, setIsCalibrated] = useState(false);
 
-    // Persistence: Load Calibration
-    useEffect(() => {
-        const stored = localStorage.getItem('KEYBOARD_CALIBRATION');
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (Object.keys(parsed).length > 20) { // Basic sanity check
-                    setKeyMap(parsed);
-                    setIsCalibrated(true);
-                    setMode('TYPING');
-                }
-            } catch (e) {
-                console.error("Failed to load calibration", e);
-            }
-        }
-    }, []);
+    // Persistence: Save Calibration whenever it completes (Layout only? Or just trust auto-measure?)
+    // Actually, for visual gesture typing, we should ALWAYS trust the auto-measured DOM.
+    // Persistence of old coordinates causes the "way below" visual bug.
+    // We only need to persist the "User has seen the tutorial" or "Layout Preference" if applicable.
+    // For now, let's Auto-Calibrate immediately when we have enough keys mapped.
 
-    // Persistence: Save Calibration whenever it completes
     useEffect(() => {
-        if (isCalibrated && Object.keys(keyMap).length > 0) {
-            localStorage.setItem('KEYBOARD_CALIBRATION', JSON.stringify(keyMap));
+        // If we have a sufficient number of keys mapped (e.g. > 20), we can consider the "Visual" calibration done.
+        // This effectively "skips" the manual step for web users, while keeping accuracy high.
+        const keyCount = Object.keys(keyMap).length;
+        if (!isCalibrated && keyCount > 25) {
+            console.log("Auto-Calibration: Sufficient keys measured from DOM. Calibrated.");
+            setIsCalibrated(true);
+            setMode('TYPING');
         }
-    }, [isCalibrated, keyMap]);
+    }, [keyMap, isCalibrated]);
+
+    // Typing State
 
     // Typing State
     const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());

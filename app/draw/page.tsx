@@ -5,7 +5,7 @@ import { useGesture } from "@/components/gesture-context";
 import { InteractiveCanvas } from "@/components/draw/interactive-canvas";
 import { Keyboard } from "@/components/ui/keyboard";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Brain, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Brain, CheckCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -14,7 +14,13 @@ import { ModeToggle } from "@/components/mode-toggle";
 export default function DrawPage() {
     const { setMode, shapes, clearCanvas } = useGesture();
     const [isGenerating, setIsGenerating] = useState(false);
-    const [generatedArt, setGeneratedArt] = useState<string | null>(null);
+
+    // Image History State
+    const [history, setHistory] = useState<string[]>([]);
+    const [currIndex, setCurrIndex] = useState(0);
+
+    const generatedArt = history.length > 0 ? history[currIndex] : null;
+
     const [thoughts, setThoughts] = useState<Array<{ type: 'status' | 'thought' | 'error', content: string }>>([]);
     const [currentStatus, setCurrentStatus] = useState<string>("");
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -36,7 +42,7 @@ export default function DrawPage() {
         if (shapes.length === 0 || !canvasRef.current) return;
 
         setIsGenerating(true);
-        if (!isRefine) setGeneratedArt(null);
+        // Note: We don't clear generatedArt here anymore, we wait for the new one.
 
         setThoughts([]);
         setCurrentStatus(isRefine ? "Refining Agent..." : "Initializing Agent...");
@@ -86,7 +92,12 @@ export default function DrawPage() {
                         } else if (data.type === "thought") {
                             setThoughts(prev => [...prev, { type: 'thought', content: data.content }]);
                         } else if (data.type === "image") {
-                            setGeneratedArt(data.content);
+                            // Add new image to history and switch to it
+                            setHistory(prev => {
+                                const newHistory = [...prev, data.content];
+                                setCurrIndex(newHistory.length - 1);
+                                return newHistory;
+                            });
                             setCurrentStatus("Complete");
                         } else if (data.type === "error") {
                             setThoughts(prev => [...prev, { type: 'error', content: data.content }]);
@@ -141,7 +152,8 @@ export default function DrawPage() {
                                 variant="secondary"
                                 onClick={() => {
                                     clearCanvas();
-                                    setGeneratedArt(null);
+                                    setHistory([]);
+                                    setCurrIndex(0);
                                     setThoughts([]);
                                     setCurrentStatus("");
                                     setUserPrompt("");
@@ -268,18 +280,44 @@ export default function DrawPage() {
                 <div className="lg:col-span-5 flex flex-col gap-4">
                     <div className="w-full h-[600px] bg-card border border-border rounded-2xl shadow-inner flex items-center justify-center overflow-hidden p-4 relative group">
                         {generatedArt ? (
-                            <div className="relative w-full h-full">
+                            <div className="relative w-full h-full group">
                                 <img
                                     src={generatedArt}
                                     alt="Generated Art"
                                     className="w-full h-full object-contain animate-in zoom-in-95 duration-500"
                                 />
+
+                                {/* Carousel Controls */}
+                                {history.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => setCurrIndex(prev => Math.max(0, prev - 1))}
+                                            disabled={currIndex === 0}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-0 disabled:pointer-events-none transition-all"
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrIndex(prev => Math.min(history.length - 1, prev + 1))}
+                                            disabled={currIndex === history.length - 1}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-0 disabled:pointer-events-none transition-all"
+                                        >
+                                            <ChevronRight size={24} />
+                                        </button>
+
+                                        {/* Version Badge */}
+                                        <div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-md">
+                                            Version {currIndex + 1} / {history.length}
+                                        </div>
+                                    </>
+                                )}
+
                                 <div className="absolute bottom-4 right-4 flex gap-2">
                                     <Button
-                                        onClick={() => handleDownload('gemini-masterpiece.png')}
+                                        onClick={() => handleDownload(`gemini-artifact-${currIndex + 1}.png`)}
                                         className="text-xs font-bold px-4 py-2 bg-primary hover:bg-primary/80 shadow-lg transition-all flex items-center gap-2"
                                     >
-                                        Download
+                                        <Download size={16} /> Download
                                     </Button>
                                 </div>
                             </div>

@@ -3,14 +3,20 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, X } from 'lucide-react';
+import { BookOpen, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface AppDocModalProps {
-    content: string;
+    docs: { title: string; content: string }[];
 }
 
-export function AppDocModal({ content }: AppDocModalProps) {
+export function AppDocModal({ docs }: AppDocModalProps) {
     const [isOpen, setIsOpen] = useState(false);
+    const [pageIndex, setPageIndex] = useState(0);
+
+    const currentDoc = docs[pageIndex];
+    const hasNext = pageIndex < docs.length - 1;
+    const hasPrev = pageIndex > 0;
 
     return (
         <>
@@ -33,7 +39,7 @@ export function AppDocModal({ content }: AppDocModalProps) {
             {/* Modal Overlay */}
             <AnimatePresence>
                 {isOpen && (
-                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -48,13 +54,20 @@ export function AppDocModal({ content }: AppDocModalProps) {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-4xl max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                            className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
+                            <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50 shrink-0">
                                 <div className="flex items-center gap-3">
                                     <BookOpen className="text-blue-600" />
-                                    <h2 className="text-xl font-bold text-gray-800">Application Documentation</h2>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-800">
+                                            {currentDoc?.title || "Documentation"}
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                                            Chapter {pageIndex + 1} of {docs.length}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => setIsOpen(false)}
@@ -65,10 +78,46 @@ export function AppDocModal({ content }: AppDocModalProps) {
                             </div>
 
                             {/* Content */}
-                            <div className="p-8 overflow-y-auto overflow-x-hidden">
-                                <article className="text-black prose prose-blue max-w-none prose-headings:font-bold prose-headings:text-black prose-p:text-black prose-li:text-black">
-                                    <ReactMarkdown>{content}</ReactMarkdown>
-                                </article>
+                            <div className="p-8 overflow-y-auto overflow-x-hidden flex-grow bg-white">
+                                {currentDoc ? (
+                                    <article className="text-black prose prose-blue max-w-none prose-headings:font-bold prose-headings:text-black prose-p:text-black prose-li:text-black">
+                                        <ReactMarkdown>{currentDoc.content}</ReactMarkdown>
+                                    </article>
+                                ) : (
+                                    <div className="text-center text-gray-500 py-10">
+                                        No documentation found.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer Navigation */}
+                            <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+                                    disabled={!hasPrev}
+                                    className="gap-2"
+                                >
+                                    <ChevronLeft size={16} /> Previous Chapter
+                                </Button>
+
+                                <div className="flex gap-1">
+                                    {docs.map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`w-2 h-2 rounded-full transition-all ${i === pageIndex ? 'bg-blue-600 w-4' : 'bg-gray-300'}`}
+                                        />
+                                    ))}
+                                </div>
+
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setPageIndex(p => Math.min(docs.length - 1, p + 1))}
+                                    disabled={!hasNext}
+                                    className="gap-2"
+                                >
+                                    Next Chapter <ChevronRight size={16} />
+                                </Button>
                             </div>
                         </motion.div>
                     </div>

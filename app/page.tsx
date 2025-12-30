@@ -15,17 +15,23 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 async function getDocContent() {
+  const docs = [];
+
   try {
-    const filePath = path.join(process.cwd(), 'APPDOC.md');
-    const content = await fs.promises.readFile(filePath, 'utf8');
-    return content;
-  } catch (e) {
-    return "# Documentation Not Found\n\nPlease check if APPDOC.md exists.";
-  }
+    const content = await fs.promises.readFile(path.join(process.cwd(), 'APPDOC.md'), 'utf8');
+    docs.push({ title: 'Technical Documentation', content });
+  } catch (e) { }
+
+  try {
+    const content = await fs.promises.readFile(path.join(process.cwd(), 'APPDOC2.md'), 'utf8');
+    docs.push({ title: 'Innovation & Strategy', content });
+  } catch (e) { }
+
+  return docs;
 }
 
 export default async function Home() {
-  const docContent = await getDocContent();
+  const docs = await getDocContent();
 
   return (
     <main className="flex min-h-screen flex-col items-center p-4 lg:p-8 bg-background relative overflow-x-hidden">
@@ -39,7 +45,7 @@ export default async function Home() {
       />
 
       {/* App Documentation Viewer */}
-      <AppDocModal content={docContent} />
+      <AppDocModal docs={docs} />
 
       {/* Modern Glass Header */}
       <header className="z-50 w-full max-w-7xl flex items-center justify-between px-6 py-4 rounded-2xl border border-white/50 dark:border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-sm mb-8 sticky top-4">

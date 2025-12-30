@@ -1,9 +1,9 @@
-# APPDOC: Physical Gesture Typing Engine
+# **APPDOC: Physical Gesture Typing Engine**
 
-## 1. Overview
+## **1. Overview**
 This application is a **web-based prototype for "Headless" Gesture Typing on Physical Keyboards**. Unlike traditional touchscreen keyboards, this system allows users to "swipe" on a physical keyboard (using a capacitive touch layer or simply rapid key-over-swiping). The engine interprets the noisy stream of keystrokes to deduce the intended word, combining geometric analysis, local pattern recognition, and Large Language Model (LLM) inference.
 
-## 2. Core Architecture
+## **2. Core Architecture**
 
 The application is built on **Next.js** (App Router) with **Tailwind CSS**. The core logic resides in a centralized React Context (`GestureContext`), which manages the entire lifecycle of a keystroke -> word transformation.
 
@@ -18,11 +18,11 @@ The application is built on **Next.js** (App Router) with **Tailwind CSS**. The 
 
 ---
 
-## 3. The "6-Layer" Decoding Engine
+## **3. The "6-Layer" Decoding Engine**
 
 The input processing pipeline is divided into distinct layers, moving from raw signals to semantic understanding.
 
-### Layer 1: Input Capture & Calibration
+### **Layer 1: Input Capture & Calibration**
 *   **Component**: `components/ui/keyboard.tsx` & `GestureContext`
 *   **Functionality**:
     *   **Calibration**: Maps physical keys to X/Y screen coordinates. This creates a "Virtual Map" of the physical layout.
@@ -33,7 +33,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Anti-Ghosting**: Intercepts native key events for mapped keys to prevent "double typing".
     *   **Visuals**: Renders a premium, glassmorphic suggestion bar and keyboard visualization.
 
-### Layer 1.5: Smart Calibration & Layout Detection
+### **Layer 1.5: Smart Calibration & Layout Detection**
 *   **Feature**: Automatic Keyboard Layout Sensing.
 *   **Logic**:
     *   The system pauses auto-calibration and waits for user interaction.
@@ -41,7 +41,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Detection**: Instantly identifies layouts (e.g., Pressing 'A' when 'Q' is shown -> AZERTY).
     *   **Remapping**: Automatically adjusts the `KeyMap` so that physical keystrokes align with the visual QWERTY layout, enabling seamless gesture typing for non-QWERTY users without manual configuration.
 
-### Layer 2: Hybrid Input Logic (Literal vs. Gesture)
+### **Layer 2: Hybrid Input Logic (Literal vs. Gesture)**
 *   **File**: `components/gesture-context.tsx`
 *   **Logic**:
     *   **Literal Typing**: Taps or short sequences (< 4 points) are treated as literal keystrokes.
@@ -54,7 +54,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Dwell Detection**: Identifies keys where the user paused.
     *   **Inflection Detection**: Calculates angles between key vectors to find sharp turns.
 
-### Layer 4: Local Candidate Filtering (The Dictionary)
+### **Layer 4: Local Candidate Filtering (The Dictionary)**
 *   **Files**: `lib/dictionary.ts`, `lib/candidate-filter.ts`
 *   **Description**: Constrains the search space using "physics".
 *   **Logic**:
@@ -63,7 +63,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
         *   **Source Indicators**: Instantly differentiates between `LOCAL` (emerald) and `API` (amber) predictions in the UI.
         *   **Visual Feedback**: A dedicated loading spinner ensures the user knows exactly when the AI is "thinking" vs. instant local matches.
 
-### Layer 5: Pattern Recognition (Strategic Layer)
+### **Layer 5: Pattern Recognition (Strategic Layer)**
 *   **File**: `lib/pattern-store.ts`, `app/train/page.tsx`
 *   **Purpose**: Speed, personalization, and API reduction.
 *   **Training Interface (`/train`)**:
@@ -72,7 +72,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **Visualization**: Displays the live, raw key stream (e.g., `hhhheeeelllloooo`) in real-time.
     *   **Inference**: Before AI processing, the system checks `PatternStore` for 1:1 matches.
 
-### Layer 6: AI Inference (The Semantic Brain)
+### **Layer 6: AI Inference (The Semantic Brain)**
 *   **File**: `app/api/predict/route.ts`
 *   **Model**: Gemini 1.5 Flash
 *   **Purpose**: Final disambiguation using context.
@@ -80,11 +80,11 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 
 ---
 
-## 4. Agentic Creative Flow (The "Art Director" Loop)
+## **4. Agentic Creative Flow (The "Art Director" Loop)**
 *   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
 *   **Concept**: Instead of a simple "prompt -> image" linear path, the system employs an autonomous **Agentic Loop** modeled after a human design process.
 
-### The 5-Stage Cycle
+### **The 5-Stage Cycle**
 1.  **PLAN (Gemini 3 Pro)**: The agent analyzes the user's sketch and intent. It acts as an "Art Director", devising a strategy (lighting, composition, style) before any image is generated.
 2.  **EXECUTE (Imagen 4 Fast)**: The system generates a draft based on the plan using `imagen-4.0-fast-generate-001`.
 3.  **VERIFY (Gemini 3 Pro Vision)**: The agent *looks* at the generated image and compares it to the original sketch. It critiques the result (e.g., "Did I miss the user's circle? Is the lighting correct?").
@@ -93,7 +93,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
     *   **UI/Web Designs**: Generates valid HTML/Tailwind code.
     *   **Greetings/Art**: Generates heartwarming messages or inspiring captions.
 
-### Benefits
+### **Benefits**
 *   **Higher Accuracy**: The system "proofreads" its own work.
 *   **Ghost-in-the-Machine**: Users see the agent's internal monologue ("Thinking...", "Critiquing...", "Refining..."), creating a transparent and engaging experience.
 *   **Multimodal Refinement**: The "Refine" feature feeds the *previous output* back into the Planning stage, allowing for iterative artistic direction.
@@ -101,7 +101,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 
 ---
 
-## 5. UI/UX Design System
+## **5. UI/UX Design System**
 The application now features a unified, premium design language:
 *   **Glassmorphism**: Headers and floating panels use `backdrop-blur` and translucent backgrounds.
 *   **Global Styles**: Smooth scrolling, custom selection colors, and a subtle dot-pattern background.
@@ -112,7 +112,7 @@ The application now features a unified, premium design language:
 
 ---
 
-## 6. Key Files & Responsibilities
+## **6. Key Files & Responsibilities**
 
 *   **`components/gesture-context.tsx`**
     *   **The Core Brain**: Handles input routing, state, and layer orchestration.

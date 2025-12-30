@@ -92,30 +92,34 @@ This project moves beyond simple API calls by implementing a **Self-Correcting A
 5.  **Open the App**:
     Visit `http://localhost:3000` in your browser.
 
-## 🎮 Usage Guide
+## 🎮 Quick Start Guide
 
-### 1. Calibration (Smart)
-*   On the home page, the system will ask you to press specific keys (e.g., `Q`).
-*   **Simply press the corresponding key on your physical keyboard.**
-*   The system detects if you use QWERTY, AZERTY, etc., and instantly adapts.
-*   Once calibrated, the virtual coordinate space is mapped to your distinct layout.
+Follow these steps to master the gesture engine:
 
-### 2. Gesture Typing
-*   Focus on the main text area.
-*   **Tap** keys normally for single letters.
-*   **Swipe** (glide your finger) across keys to type words.
-*   The AI will predict the most likely word based on your sentence.
+### 1. Calibrate Your Keyboard (Essential)
+*   **Look for the Prompt**: When you load the app, a floating badge will ask you to press a specific key (e.g., *"Press Q"*).
+*   **One Press is Enough**: Locate that key on your physical keyboard and press it **once**.
+*   **Instant Alignment**: The system instantly detects if you are on QWERTY, AZERTY, or DVORAK and aligns the gesture engine to your physical keys. You don't need to configure anything else!
 
-### 3. Training Mode (`/train`)
-*   Navigate to **Pattern Training Lab**.
-*   Type a target word (e.g., "algorithm").
-*   Perform the gesture 3 times to teach the engine your specific style.
-*   This creates a personalized shortcut that bypasses AI for speed.
+### 2. Master "Headless" Gesture Typing
+*   **Focus**: Click into the main text box (or any input field).
+*   **Tap**: Type normally for single letters.
+*   **Swipe**: Glide your finger across the keys to form words. Imagine you are drawing the shape of the word on your keyboard.
+*   **Watch the Signals**:
+    *   🟢 **Green (Local)**: Instant matches from the local dictionary.
+    *   🟠 **Amber (AI)**: Smart predictions from Gemini based on your sentence context.
 
-### 4. Draw Mode (`/draw`)
-*   Switch to **Draw via Keyboard** mode.
-*   Gesturing on the keyboard creates shapes on the canvas.
-*   Click **Generate Masterpiece** to have Gemini & Imagen interpret your sketch.
+### 3. Create AI Art (`/draw`)
+*   **Sketch**: Use your keyboard to "draw" shapes (circles, lines) on the canvas. The engine interprets your gestures as geometric forms.
+*   **Activate Agent**: Click the button to start the **Agentic Loop**.
+    *   **Plan**: The Agent analyzes your sketch's intent.
+    *   **Generate**: Imagen creates a high-fidelity image.
+    *   **Contextualize**: The Agent generates valid HTML code (for UI) or captions (for Art) below the image.
+*   **Refine**: Click "Refine" to have the Agent critique and improve the artwork automatically.
+*   **History**: Use the `<` and `>` arrows to browse previous versions.
+
+### 4. Personalize (`/train`)
+*   Go to **Pattern Training Lab** to teach the engine your unique swipe style for specific words, bypassing the AI for faster local recognition.
 
 ## 📄 Documentation
 

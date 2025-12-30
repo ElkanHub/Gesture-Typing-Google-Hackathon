@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, X, MapPin, Zap, Keyboard, Settings, MousePointer2 } from 'lucide-react';
+import { HelpCircle, X, MapPin, Zap, Keyboard, Settings, MousePointer2, Sparkles, Brain } from 'lucide-react';
 
 export function QuickStartModal() {
     const [isOpen, setIsOpen] = useState(false);
@@ -15,8 +15,6 @@ export function QuickStartModal() {
 
     return (
         <>
-
-
             <button
                 onClick={() => setIsOpen(true)}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded w-full flex items-center justify-center gap-2"
@@ -62,75 +60,66 @@ export function QuickStartModal() {
 
                                 {/* Content */}
                                 <div className="p-8 overflow-y-auto">
-                                    <div className="space-y-8">
+                                    <div className="space-y-6">
 
-                                        {/* 1. Get Started */}
-                                        <section>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                                <Settings className="w-5 h-5 text-blue-500" />
-                                                1. Get Started (Calibration)
-                                            </h3>
-                                            <p className="text-gray-600 mb-3 white">
-                                                The app needs to know your keyboard layout.
-                                                Press the highlighted <strong>Validation Keys</strong> in order on the virtual keyboard to calibrate your physical device. You will see <p className='text-green-500 whitespace-nowrap'>YES</p> on the right dashboard.
+                                        {/* Step 1: Calibration */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                                    <Keyboard size={20} />
+                                                </div>
+                                                <h3 className="font-semibold text-gray-800">1. Calibrate (Essential)</h3>
+                                            </div>
+                                            <p className="text-sm text-gray-600 leading-relaxed pl-12">
+                                                When prompted, press the requested key <strong>ONE time</strong> on your physical keyboard. The engine instantly detects your layout (QWERTY, AZERTY, etc.) and aligns the sensors.
                                             </p>
-                                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
-                                                <strong>Tip:</strong> This ensures your gestures are mapped correctly to your screen.
-                                            </div>
-                                        </section>
+                                        </div>
 
-                                        <div className="w-full h-px bg-gray-100" />
-
-                                        {/* 2. Key Features */}
-                                        <section>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                                2. Key Features
-                                            </h3>
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div className="bg-gray-50 p-4 rounded-xl">
-                                                    <h4 className="font-bold text-gray-800 mb-1">Gesture Typing</h4>
-                                                    <p className="text-sm text-gray-600">
-                                                        Physically glide your fingers over keys to type. The AI predicts words based on your path.
-                                                    </p>
+                                        {/* Step 2: Typing */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                                                    <MousePointer2 size={20} />
                                                 </div>
-                                                <div className="bg-gray-50 p-4 rounded-xl">
-                                                    <h4 className="font-bold text-gray-800 mb-1">Drawing Mode</h4>
-                                                    <p className="text-sm text-gray-600">
-                                                        Use your physical keyboard as a canvas. AI interprets your keystrokes into shapes and art.
-                                                    </p>
-                                                </div>
+                                                <h3 className="font-semibold text-gray-800">2. Headless Typing</h3>
                                             </div>
-                                        </section>
-
-                                        <div className="w-full h-px bg-gray-100" />
-
-                                        {/* 3. The Two Pages */}
-                                        <section>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                                <MousePointer2 className="w-5 h-5 text-purple-500" />
-                                                3. Using the App
-                                            </h3>
-                                            <ul className="space-y-4">
-                                                <li className="flex gap-4">
-                                                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">A</div>
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-800">Typing Interface (Home)</h4>
-                                                        <p className="text-sm text-gray-600">
-                                                            The main page for text validation and typing practice. Use the virtual keyboard reference to learn the positions.
-                                                        </p>
-                                                    </div>
-                                                </li>
-                                                <li className="flex gap-4">
-                                                    <div className="flex-shrink-0 w-10 h-10 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center font-bold">B</div>
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-800">Draw with Keyboard</h4>
-                                                        <p className="text-sm text-gray-600">
-                                                            Switch to this mode to create generative art. Your gestures become brush strokes, interpretable by AI.
-                                                        </p>
-                                                    </div>
-                                                </li>
+                                            <ul className="text-sm text-gray-600 leading-relaxed pl-12 list-disc list-outside space-y-1">
+                                                <li><strong>Tap</strong> keys normally for single letters.</li>
+                                                <li><strong>Swipe</strong> across keys to form words. Imagine drawing the shape of the word.</li>
+                                                <li>Watch the <strong>Suggestion Bar</strong>: Green is a local match, Amber is AI prediction.</li>
                                             </ul>
-                                        </section>
+                                        </div>
+
+                                        {/* Step 3: Creative Agent */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                                    <Sparkles size={20} />
+                                                </div>
+                                                <h3 className="font-semibold text-gray-800">3. Creative Studio (/draw)</h3>
+                                            </div>
+                                            <p className="text-sm text-gray-600 leading-relaxed pl-12">
+                                                Use your keyboard to sketch shapes. The <strong>Agentic AI</strong> will:
+                                            </p>
+                                            <ul className="text-sm text-gray-600 leading-relaxed pl-12 list-disc list-outside mt-1 space-y-1">
+                                                <li><strong>Plan & Generate</strong> a masterpiece from your sketch.</li>
+                                                <li><strong>Contextualize</strong> it by generating usable Code (for UI) or Captions (for Art).</li>
+                                                <li><strong>Refine</strong> the result based on your feedback.</li>
+                                            </ul>
+                                        </div>
+
+                                        {/* Step 4: Training */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                                                    <Brain size={20} />
+                                                </div>
+                                                <h3 className="font-semibold text-gray-800">4. Pattern Training (/train)</h3>
+                                            </div>
+                                            <p className="text-sm text-gray-600 leading-relaxed pl-12">
+                                                Teach the engine your unique swipe style for specific words using <strong>3-Shot Learning</strong>. This creates a personalized shortcut that bypasses the AI for instant speed.
+                                            </p>
+                                        </div>
 
                                     </div>
                                 </div>
@@ -143,5 +132,3 @@ export function QuickStartModal() {
         </>
     );
 }
-
-

@@ -114,12 +114,23 @@ The application now features a unified, premium design language:
 
 ## 6. Key Files & Responsibilities
 
-| File | specific Responsibility |
-| :--- | :--- |
-| `components/gesture-context.tsx` | **The Core Brain**. Handles input routing, state, and layer orchestration. |
-| `app/api/predict/route.ts` | **The Text Brain**. Word prediction via Gemini 1.5 Flash. |
-| `app/api/generate/route.ts` | **The Vision Brain**. Pipeline for Sketch -> Gemini 3 Reasoning -> Imagen 4. |
-| `components/ui/keyboard.tsx` | **The Interface**. Renders keys, gesture trail, and suggestions. |
-| `lib/pattern-store.ts` | **Memory**. LocalStorage wrapper for learned patterns. |
-| `app/train/page.tsx` | **Training Lab**. Explicit 3-shot learning UI with raw stream visualization. |
-| `app/draw/page.tsx` | **Creative Studio**. Interactive canvas and AI art generation interface. |
+*   **`components/gesture-context.tsx`**
+    *   **The Core Brain**: Handles input routing, state, and layer orchestration.
+
+*   **`app/api/predict/route.ts`**
+    *   **The Text Brain**: Word prediction via Gemini 1.5 Flash.
+
+*   **`app/api/generate/route.ts`**
+    *   **The Vision Brain**: Multimodal pipeline for Sketch -> Gemini 3 (Plan) -> Imagen 4 (Execute).
+
+*   **`components/ui/keyboard.tsx`**
+    *   **The Interface**: Renders keys, gesture trail, and suggestions.
+
+*   **`lib/pattern-store.ts`**
+    *   **Memory**: LocalStorage wrapper for learned patterns.
+
+*   **`app/train/page.tsx`**
+    *   **Training Lab**: Explicit 3-shot learning UI with raw stream visualization.
+
+*   **`app/draw/page.tsx`**
+    *   **Creative Studio**: Agentic art generation interface with history and context.

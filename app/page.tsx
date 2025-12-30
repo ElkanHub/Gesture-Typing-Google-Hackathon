@@ -31,10 +31,9 @@ export default async function Home() {
     <main className="flex min-h-screen flex-col items-center p-4 lg:p-8 bg-background relative overflow-x-hidden">
 
       {/* Magic UI Background */}
-      <div className="z-0 pointer-events-none absolute inset-0 flex items-center justify-center bg-white [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black"></div>
+      <div className="z-0 pointer-events-none absolute inset-0 flex items-center justify-center bg-gray [mask-image:linear-gradient(to_top,transparent_9%,black)] dark:bg-black"></div>
       <DotPattern
         className={cn(
-          "[mask-image:radial-gradient(900px_circle_at_center,white,transparent)]",
           "opacity-50 text-gray-300 dark:text-gray-800"
         )}
       />
@@ -49,7 +48,7 @@ export default async function Home() {
             <span className="text-primary-foreground font-bold text-xl">⌨️</span>
           </div>
           <div>
-            <div className="font-bold text-lg tracking-tight flex items-center">
+            <div className="font-bold text-white text-lg tracking-tight flex items-center">
               Gesture Typing
               <Badge variant="secondary" className="ml-2 text-xs">Prototype</Badge>
             </div>

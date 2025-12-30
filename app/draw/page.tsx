@@ -5,21 +5,31 @@ import { useGesture } from "@/components/gesture-context";
 import { InteractiveCanvas } from "@/components/draw/interactive-canvas";
 import { Keyboard } from "@/components/ui/keyboard";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Brain, CheckCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, Sparkles, Brain, CheckCircle, ChevronLeft, ChevronRight, Download, Code, MessageSquare, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ModeToggle } from "@/components/mode-toggle";
+
+interface HistoryItem {
+    id: string;
+    image: string;
+    context?: {
+        type: 'code' | 'text';
+        content: string;
+    };
+}
 
 export default function DrawPage() {
     const { setMode, shapes, clearCanvas } = useGesture();
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Image History State
-    const [history, setHistory] = useState<string[]>([]);
+    const [history, setHistory] = useState<HistoryItem[]>([]);
     const [currIndex, setCurrIndex] = useState(0);
 
-    const generatedArt = history.length > 0 ? history[currIndex] : null;
+    const currentItem = history.length > 0 ? history[currIndex] : null;
+    const generatedArt = currentItem?.image || null;
 
     const [thoughts, setThoughts] = useState<Array<{ type: 'status' | 'thought' | 'error', content: string }>>([]);
     const [currentStatus, setCurrentStatus] = useState<string>("");
@@ -42,13 +52,12 @@ export default function DrawPage() {
         if (shapes.length === 0 || !canvasRef.current) return;
 
         setIsGenerating(true);
-        // Note: We don't clear generatedArt here anymore, we wait for the new one.
 
         setThoughts([]);
         setCurrentStatus(isRefine ? "Refining Agent..." : "Initializing Agent...");
 
         try {
-            // Capture Canvas
+            // ... capture canvas ...
             const html2canvas = (await import('html2canvas-pro')).default;
             const canvas = await html2canvas(canvasRef.current, {
                 backgroundColor: '#ffffff',
@@ -92,10 +101,29 @@ export default function DrawPage() {
                         } else if (data.type === "thought") {
                             setThoughts(prev => [...prev, { type: 'thought', content: data.content }]);
                         } else if (data.type === "image") {
-                            // Add new image to history and switch to it
+                            // Add new image to history
                             setHistory(prev => {
-                                const newHistory = [...prev, data.content];
+                                const newItem: HistoryItem = {
+                                    id: Date.now().toString(),
+                                    image: data.content
+                                };
+                                const newHistory = [...prev, newItem];
                                 setCurrIndex(newHistory.length - 1);
+                                return newHistory;
+                            });
+                            setCurrentStatus("Contextualizing...");
+                        } else if (data.type === "context") {
+                            // Attach context to the latest history item
+                            const contextData = JSON.parse(data.content);
+                            setHistory(prev => {
+                                const newHistory = [...prev];
+                                const lastIdx = newHistory.length - 1;
+                                if (lastIdx >= 0) {
+                                    newHistory[lastIdx] = {
+                                        ...newHistory[lastIdx],
+                                        context: contextData
+                                    };
+                                }
                                 return newHistory;
                             });
                             setCurrentStatus("Complete");
@@ -108,7 +136,6 @@ export default function DrawPage() {
                     }
                 }
             }
-
         } catch (e: any) {
             console.error("Failed to generate", e);
             setThoughts(prev => [...prev, { type: 'error', content: "Connection failed" }]);
@@ -312,7 +339,44 @@ export default function DrawPage() {
                                     </>
                                 )}
 
-                                <div className="absolute bottom-4 right-4 flex gap-2">
+                                {/* Contextual Content (Agent's Note) */}
+                                {currentItem?.context && (
+                                    <div className="absolute inset-x-4 bottom-16 z-20 animate-in slide-in-from-bottom-5 duration-700 delay-300">
+                                        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-2xl border border-border p-4 max-h-[200px] overflow-y-auto custom-scrollbar group/context transition-all hover:max-h-[400px]">
+                                            <div className="flex items-center justify-between mb-2 sticky top-0 bg-inherit z-10 pb-2 border-b border-border/50">
+                                                <div className="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
+                                                    {currentItem.context.type === 'code' ? <Code size={14} /> : <MessageSquare size={14} />}
+                                                    {currentItem.context.type === 'code' ? 'Generated Code' : 'Agent Message'}
+                                                </div>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-6 w-6 hover:bg-muted"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(currentItem.context?.content || "");
+                                                        // toast("Copied to clipboard"); 
+                                                    }}
+                                                >
+                                                    <Copy size={12} />
+                                                </Button>
+                                            </div>
+
+                                            <div className="text-sm text-foreground/90">
+                                                {currentItem.context.type === 'code' ? (
+                                                    <pre className="font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all bg-slate-100 dark:bg-slate-800 p-2 rounded-lg">
+                                                        {currentItem.context.content}
+                                                    </pre>
+                                                ) : (
+                                                    <p className="italic leading-relaxed">
+                                                        "{currentItem.context.content}"
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="absolute bottom-4 right-4 flex gap-2 z-20">
                                     <Button
                                         onClick={() => handleDownload(`gemini-artifact-${currIndex + 1}.png`)}
                                         className="text-xs font-bold px-4 py-2 bg-primary hover:bg-primary/80 shadow-lg transition-all flex items-center gap-2"

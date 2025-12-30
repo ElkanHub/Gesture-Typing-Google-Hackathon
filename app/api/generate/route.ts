@@ -171,13 +171,14 @@ Output JSON:
                                 1. STRICTLY ONLY generate "code" if the image is clearly a UI Interface, Website, or App Mockup.
                                 2. If it's a Greeting/Gift Card: Generate a warm, funny, or appropriate message.
                                 3. If it's Art, Abstract, or unclear: Generate an inspiring quote or artistic caption.
+                                4. Return RAW strings only. Do NOT use markdown code blocks (triple backticks) in the content.
                                 
                                 Return JSON:
-                                {
-                                    "type": "code" | "text",
-                                    "content": "the actual code or text"
-                                }
-                                `
+                {
+                    "type": "code" | "text",
+                    "content": "the actual code or text"
+                }
+                    `
                             }]
                         }],
                         config: { responseMimeType: "application/json" }

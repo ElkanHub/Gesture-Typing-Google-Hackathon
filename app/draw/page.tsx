@@ -378,13 +378,13 @@ export default function DrawPage() {
 
                             <div className="text-sm text-foreground/90 max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {currentItem.context.type === 'code' ? (
-                                    <pre className="font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all bg-slate-100 dark:bg-slate-800 p-3 rounded-lg">
-                                        {currentItem.context.content}
+                                    <pre className="font-mono text-xs overflow-x-auto p-3 rounded-lg bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border border-border/50">
+                                        <code>{currentItem.context.content.replace(/^```(html|css|javascript|bbox)?/i, '').replace(/```$/, '').trim()}</code>
                                     </pre>
                                 ) : (
-                                    <p className="italic leading-relaxed">
+                                    <div className="italic leading-relaxed whitespace-pre-wrap px-1">
                                         "{currentItem.context.content}"
-                                    </p>
+                                    </div>
                                 )}
                             </div>
                         </div>

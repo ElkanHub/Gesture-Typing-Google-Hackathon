@@ -339,43 +339,6 @@ export default function DrawPage() {
                                     </>
                                 )}
 
-                                {/* Contextual Content (Agent's Note) */}
-                                {currentItem?.context && (
-                                    <div className="absolute inset-x-4 bottom-16 z-20 animate-in slide-in-from-bottom-5 duration-700 delay-300">
-                                        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-2xl border border-border p-4 max-h-[200px] overflow-y-auto custom-scrollbar group/context transition-all hover:max-h-[400px]">
-                                            <div className="flex items-center justify-between mb-2 sticky top-0 bg-inherit z-10 pb-2 border-b border-border/50">
-                                                <div className="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
-                                                    {currentItem.context.type === 'code' ? <Code size={14} /> : <MessageSquare size={14} />}
-                                                    {currentItem.context.type === 'code' ? 'Generated Code' : 'Agent Message'}
-                                                </div>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-6 w-6 hover:bg-muted"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(currentItem.context?.content || "");
-                                                        // toast("Copied to clipboard"); 
-                                                    }}
-                                                >
-                                                    <Copy size={12} />
-                                                </Button>
-                                            </div>
-
-                                            <div className="text-sm text-foreground/90">
-                                                {currentItem.context.type === 'code' ? (
-                                                    <pre className="font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all bg-slate-100 dark:bg-slate-800 p-2 rounded-lg">
-                                                        {currentItem.context.content}
-                                                    </pre>
-                                                ) : (
-                                                    <p className="italic leading-relaxed">
-                                                        "{currentItem.context.content}"
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="absolute bottom-4 right-4 flex gap-2 z-20">
                                     <Button
                                         onClick={() => handleDownload(`gemini-artifact-${currIndex + 1}.png`)}
@@ -392,6 +355,40 @@ export default function DrawPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Contextual Content (Now Below Image) */}
+                    {currentItem?.context && (
+                        <div className="bg-card border border-border rounded-xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500 flex flex-col gap-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                                <div className="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
+                                    {currentItem.context.type === 'code' ? <Code size={14} /> : <MessageSquare size={14} />}
+                                    {currentItem.context.type === 'code' ? 'Generated Code' : 'Agent Message'}
+                                </div>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 hover:bg-muted"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(currentItem.context?.content || "");
+                                    }}
+                                >
+                                    <Copy size={12} />
+                                </Button>
+                            </div>
+
+                            <div className="text-sm text-foreground/90 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                {currentItem.context.type === 'code' ? (
+                                    <pre className="font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all bg-slate-100 dark:bg-slate-800 p-3 rounded-lg">
+                                        {currentItem.context.content}
+                                    </pre>
+                                ) : (
+                                    <p className="italic leading-relaxed">
+                                        "{currentItem.context.content}"
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
             </div>

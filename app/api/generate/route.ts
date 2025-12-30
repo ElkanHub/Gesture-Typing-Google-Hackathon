@@ -168,9 +168,9 @@ Output JSON:
                                 Determine the most helpful accompanying content.
 
                                 Rules:
-                                1. If it looks like a UI/Website mockups: Generate the HTML/Tailwind Code.
+                                1. STRICTLY ONLY generate "code" if the image is clearly a UI Interface, Website, or App Mockup.
                                 2. If it's a Greeting/Gift Card: Generate a warm, funny, or appropriate message.
-                                3. If it's Art/Abstract: Generate an inspiring quote or artistic caption.
+                                3. If it's Art, Abstract, or unclear: Generate an inspiring quote or artistic caption.
                                 
                                 Return JSON:
                                 {

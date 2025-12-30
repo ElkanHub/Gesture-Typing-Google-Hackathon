@@ -84,16 +84,20 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 *   **Files**: `app/draw/page.tsx`, `app/api/generate/route.ts`
 *   **Concept**: Instead of a simple "prompt -> image" linear path, the system employs an autonomous **Agentic Loop** modeled after a human design process.
 
-### The 4-Stage Cycle
+### The 5-Stage Cycle
 1.  **PLAN (Gemini 3 Pro)**: The agent analyzes the user's sketch and intent. It acts as an "Art Director", devising a strategy (lighting, composition, style) before any image is generated.
 2.  **EXECUTE (Imagen 4 Fast)**: The system generates a draft based on the plan using `imagen-4.0-fast-generate-001`.
 3.  **VERIFY (Gemini 3 Pro Vision)**: The agent *looks* at the generated image and compares it to the original sketch. It critiques the result (e.g., "Did I miss the user's circle? Is the lighting correct?").
-4.  **CORRECT (Self-Healing)**: If the verification score is low (< 8/10), the agent automatically re-prompts the generator with specific corrective instructions (e.g., "Fix the alignment of the red ball").
+4.  **CORRECT (Self-Healing)**: If the verification score is low (< 8/10), the agent automatically re-prompts the generator with specific corrective instructions.
+5.  **CONTEXTUALIZE (Gemini 3 Pro)**: Finally, the agent analyzes the *approved* image to generate useful accompanying content.
+    *   **UI/Web Designs**: Generates valid HTML/Tailwind code.
+    *   **Greetings/Art**: Generates heartwarming messages or inspiring captions.
 
 ### Benefits
 *   **Higher Accuracy**: The system "proofreads" its own work.
 *   **Ghost-in-the-Machine**: Users see the agent's internal monologue ("Thinking...", "Critiquing...", "Refining..."), creating a transparent and engaging experience.
 *   **Multimodal Refinement**: The "Refine" feature feeds the *previous output* back into the Planning stage, allowing for iterative artistic direction.
+*   **Actionable Output**: Users get more than just pixels—they get code or text to use immediately.
 
 ---
 
@@ -102,6 +106,8 @@ The application now features a unified, premium design language:
 *   **Glassmorphism**: Headers and floating panels use `backdrop-blur` and translucent backgrounds.
 *   **Global Styles**: Smooth scrolling, custom selection colors, and a subtle dot-pattern background.
 *   **Typography**: Optimized hierarchy using the `Geist` font family.
+*   **History Navigation**: A carousel interface for browsing past iterations or generated artworks.
+*   **Contextual Panels**: Intelligent UI blocks that present generated code or text cleanly below the artwork without obstruction.
 *   **Consistency**: Shared header components and layout structures across Home, Train, and Draw pages.
 
 ---

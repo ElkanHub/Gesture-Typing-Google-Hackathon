@@ -43,6 +43,7 @@ This project moves beyond simple API calls by implementing a **Self-Correcting A
 2.  **Execute**: Imagen generates the artwork.
 3.  **Verify**: Gemini *views* the result to check if it matches the user's sketch.
 4.  **Correct**: If the result is flawed, the Agent *automatically* iterates to fix it—all on the server side.
+5.  **Contextualize**: The Agent generates relevant code (for UI) or captions (for Art) to accompany the image.
 
 **Benefit**: This ensures higher fidelity to user intent and "first-try" success by simulating a human review process.
 

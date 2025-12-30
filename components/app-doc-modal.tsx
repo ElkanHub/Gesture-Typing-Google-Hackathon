@@ -1,22 +1,84 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, X, ChevronLeft, ChevronRight, Volume2, Square, PauseCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AppDocModalProps {
     docs: { title: string; content: string }[];
 }
 
+function stripMarkdown(markdown: string): string {
+    if (!markdown) return "";
+    return markdown
+        // Remove headers
+        .replace(/^#+\s+/gm, '')
+        // Remove bold/italic
+        .replace(/(\*\*|__)(.*?)\1/g, '$2')
+        .replace(/(\*|_)(.*?)\1/g, '$2')
+        // Remove links
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        // Remove images
+        .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')
+        // Remove blockquotes
+        .replace(/^\s*>\s+/gm, '')
+        // Remove code blocks
+        .replace(/```[\s\S]*?```/g, '')
+        // Remove inline code
+        .replace(/`([^`]+)`/g, '$1')
+        // Remove list markers
+        .replace(/^[\s-]*\*\s+/gm, '')
+        .replace(/^\s*\d+\.\s+/gm, '')
+        // Remove extra newlines
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 export function AppDocModal({ docs }: AppDocModalProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [pageIndex, setPageIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
     const currentDoc = docs[pageIndex];
     const hasNext = pageIndex < docs.length - 1;
     const hasPrev = pageIndex > 0;
+
+    // Stop speech when modal closes or page changes
+    useEffect(() => {
+        return () => {
+            window.speechSynthesis.cancel();
+            setIsPlaying(false);
+        };
+    }, [isOpen, pageIndex]);
+
+    const handleSpeak = () => {
+        if (!currentDoc) return;
+
+        window.speechSynthesis.cancel(); // Stop any previous
+
+        const cleanText = stripMarkdown(currentDoc.content);
+        // Add title for context
+        const fullText = `${currentDoc.title}. ${cleanText}`;
+
+        const utterance = new SpeechSynthesisUtterance(fullText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onend = () => setIsPlaying(false);
+        utterance.onerror = () => setIsPlaying(false);
+
+        speechRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+        setIsPlaying(true);
+    };
+
+    const handleStop = () => {
+        window.speechSynthesis.cancel();
+        setIsPlaying(false);
+    };
 
     return (
         <>
@@ -69,12 +131,30 @@ export function AppDocModal({ docs }: AppDocModalProps) {
                                         </p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                                >
-                                    <X size={24} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={isPlaying ? handleStop : handleSpeak}
+                                        className={`gap-2 ${isPlaying ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200' : ''}`}
+                                    >
+                                        {isPlaying ? (
+                                            <>
+                                                <Square size={16} className="fill-current" /> Stop
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Volume2 size={16} /> Listen
+                                            </>
+                                        )}
+                                    </Button>
+                                    <button
+                                        onClick={() => setIsOpen(false)}
+                                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Content */}

@@ -118,7 +118,7 @@ The application now features a unified, premium design language:
     *   **The Core Brain**: Handles input routing, state, and layer orchestration.
 
 *   **`app/api/predict/route.ts`**
-    *   **The Text Brain**: Word prediction via Gemini 1.5 Flash.
+    *   **The Text Brain**: Word prediction via Gemini-3-flash-preview.
 
 *   **`app/api/generate/route.ts`**
     *   **The Vision Brain**: Multimodal pipeline for Sketch -> Gemini 3 (Plan) -> Imagen 4 (Execute).

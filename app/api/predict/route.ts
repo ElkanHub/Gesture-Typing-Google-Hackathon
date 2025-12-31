@@ -76,10 +76,26 @@ export async function POST(req: Request) {
             return NextResponse.json({ predictions: [] });
         }
 
-        return NextResponse.json(json);
+        return NextResponse.json(json, {
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            }
+        });
 
     } catch (error) {
         console.error("Prediction Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } });
     }
+}
+
+export async function OPTIONS(req: Request) {
+    return new NextResponse(null, {
+        status: 200,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+    });
 }

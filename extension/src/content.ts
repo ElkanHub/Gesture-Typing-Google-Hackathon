@@ -1,25 +1,54 @@
 import { GestureProcessor } from './gesture-logic';
+import { getKeyCoordinates } from './keymap';
 
 console.log('Physical Gesture Extension: Content Script Loaded');
 
-// Bridge to your Next.js Brain
 const processor = new GestureProcessor();
-const API_URL = 'http://localhost:3000/api/predict';
+
+// Visualizer
+const trailContainer = document.createElement('div');
+trailContainer.style.position = 'fixed';
+trailContainer.style.top = '0';
+trailContainer.style.left = '0';
+trailContainer.style.width = '100vw';
+trailContainer.style.height = '100vh';
+trailContainer.style.pointerEvents = 'none';
+trailContainer.style.zIndex = '999999';
+document.body.appendChild(trailContainer);
+
+function showKeyVisual(key: string) {
+    const coords = getKeyCoordinates(key);
+    // Project keyboard coords to screen bottom-center
+    const screenX = (window.innerWidth / 2) - 200 + coords.x;
+    const screenY = window.innerHeight - 150 + coords.y;
+
+    const dot = document.createElement('div');
+    dot.style.position = 'absolute';
+    dot.style.left = `${screenX}px`;
+    dot.style.top = `${screenY}px`;
+    dot.style.width = '20px';
+    dot.style.height = '20px';
+    dot.style.backgroundColor = 'rgba(0, 255, 128, 0.6)';
+    dot.style.borderRadius = '50%';
+    dot.style.transition = 'opacity 0.5s ease-out';
+
+    trailContainer.appendChild(dot);
+
+    // Fade out
+    setTimeout(() => {
+        dot.style.opacity = '0';
+        setTimeout(() => dot.remove(), 500);
+    }, 100);
+}
 
 document.addEventListener('keydown', (e) => {
-    // Only track if not in special fields (password etc) - TODO
-    // For now, track everything for hackathon demo
-
-    // We need screen coordinates for the key.
-    // Since physical keyboard doesn't give X/Y, we map based on a fixed QWERTY virtual layout or previous calibration.
-    // For the hackathon "Speed" version, we will assume a standard 1920x1080 scaling for now or just generic relative coordinates.
-    // Actually, to make it "Universal", we might need the @shared/layouts to map Key -> Virtual X/Y.
-
-    // For this step, let's just log the flow.
-    processor.addPoint(e.key, 0, 0); // 0,0 placeholders until we import the KeyMap
-
-    if (API_URL && e.key === 'Enter') {
-        console.log('Force processing...');
-        processor.process();
+    // Basic Filter: Only letters and space
+    if (e.key.length === 1) {
+        const { x, y } = getKeyCoordinates(e.key);
+        processor.addPoint(e.key, x, y);
+        showKeyVisual(e.key);
+        console.log(`[Gesture] Key: ${e.key} (${x}, ${y})`);
+    } else if (e.key === 'Enter') {
+        // Force confirm or newline if needed
     }
 });

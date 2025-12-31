@@ -1,5 +1,5 @@
 import { COMMON_WORDS } from "./dictionary";
-import { Point, KeyMap } from "./types";
+import type { Point, KeyMap } from "./types";
 
 const MAX_DISTANCE_THRESHOLD = 150; // Pixels (Increased for extension leniency)
 

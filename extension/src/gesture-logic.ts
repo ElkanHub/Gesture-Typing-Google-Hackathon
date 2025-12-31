@@ -2,6 +2,7 @@
 import { analyzeTrajectory } from './lib/geometry';
 import { getVisualCandidates } from './lib/candidate-filter';
 import { KEY_MAP, getKeyCoordinates } from './keymap';
+import { PatternStore, initPatternStore } from './lib/pattern-store';
 
 export interface Point {
     x: number;
@@ -26,6 +27,7 @@ export class GestureProcessor {
     constructor(onStatusChange?: (state: any, msg?: string) => void) {
         this.onStatusChange = onStatusChange;
         this.buildScaledKeyMap();
+        initPatternStore(); // Start loading cache
     }
 
     private buildScaledKeyMap() {
@@ -124,6 +126,16 @@ export class GestureProcessor {
                 // TYPING MODE (Input Focus)
                 // Only allow Gesture Typing
 
+                // 1. CACHE CHECK (Optimization)
+                const cachedWord = PatternStore.getMatch(result.sequence);
+                if (cachedWord) {
+                    console.log(`[Cache Hit] ${result.sequence} -> ${cachedWord}`);
+                    if (this.onStatusChange) this.onStatusChange('success', `Cached: ${cachedWord}`);
+                    this.deleteLastChars(this.trajectory.length);
+                    this.insertText(cachedWord);
+                    return; // SKIP API
+                }
+
                 // NEW: Perform Candidate Filtering locally
                 // We must interpolate the path because 'keydown' events are sparse (discrete),
                 // but the filter expects a continuous gesture path to hit all letters.
@@ -200,6 +212,12 @@ export class GestureProcessor {
             if (response && response.success) {
                 if (response.word) {
                     if (this.onStatusChange) this.onStatusChange('success', `Typed: ${response.word}`);
+
+                    // SAVE PATTERN (Optimization)
+                    if (analysis && analysis.sequence) {
+                        PatternStore.learnPattern(analysis.sequence, response.word);
+                    }
+
                     this.deleteLastChars(trajectory.length);
                     this.insertText(response.word);
                 } else {

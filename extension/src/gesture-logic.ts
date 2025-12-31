@@ -1,5 +1,7 @@
 
 import { analyzeTrajectory } from '../../lib/shared/geometry';
+import { getVisualCandidates } from '../../lib/candidate-filter';
+import { KEY_MAP, getKeyCoordinates } from './keymap';
 
 export interface Point {
     x: number;
@@ -17,7 +19,22 @@ export class GestureProcessor {
 
     private timeoutId: any = null;
 
-    constructor() { }
+    // Cache the scaled map
+    private scaledKeyMap: any = null;
+
+    constructor() {
+        this.buildScaledKeyMap();
+    }
+
+    private buildScaledKeyMap() {
+        this.scaledKeyMap = {};
+        for (const [key, _] of Object.entries(KEY_MAP)) {
+            const coords = getKeyCoordinates(key);
+            // candidate-filter expects {x, y, width, height}, though it mostly uses x,y.
+            // We'll give it a standard size estimate (e.g. 40px)
+            this.scaledKeyMap[key] = { ...coords, width: 40, height: 40 };
+        }
+    }
 
     public addPoint(key: string, x: number, y: number) {
         const now = Date.now();
@@ -91,18 +108,62 @@ export class GestureProcessor {
             // TYPING MODE (Input Focus)
             // Only allow Gesture Typing
 
+            // NEW: Perform Candidate Filtering locally
+            // We must interpolate the path because 'keydown' events are sparse (discrete),
+            // but the filter expects a continuous gesture path to hit all letters.
+            const denseTrajectory = this.generateDensePath(this.trajectory);
+
+            const candidates = getVisualCandidates(
+                denseTrajectory,
+                result.anchors,
+                this.scaledKeyMap
+            );
+            console.log("Filtered Candidates:", candidates);
+
             console.log("Typing Mode: Triggering prediction...");
-            this.triggerPrediction(this.trajectory, result);
+            this.triggerPrediction(this.trajectory, result, candidates);
         }
     }
 
-    private async triggerPrediction(trajectory: Point[], analysis: any) {
+    private generateDensePath(sparsePoints: Point[]): Point[] {
+        if (sparsePoints.length < 2) return sparsePoints;
+
+        const dense: Point[] = [];
+        for (let i = 0; i < sparsePoints.length - 1; i++) {
+            const p1 = sparsePoints[i];
+            const p2 = sparsePoints[i + 1];
+
+            dense.push(p1);
+
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Interpolate every ~10 pixels
+            const steps = Math.floor(dist / 10);
+
+            for (let s = 1; s <= steps; s++) {
+                const t = s / (steps + 1);
+                dense.push({
+                    x: p1.x + dx * t,
+                    y: p1.y + dy * t,
+                    time: p1.time + (p2.time - p1.time) * t,
+                    key: '' // Intermediate points don't represent a key press
+                });
+            }
+        }
+        dense.push(sparsePoints[sparsePoints.length - 1]);
+        return dense;
+    }
+
+    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[]) {
         try {
             console.log("Requesting prediction...");
             const response = await chrome.runtime.sendMessage({
                 type: 'PREDICT_GESTURE',
                 trajectory,
-                analysis
+                analysis,
+                candidates // Send the filtered list
             });
 
             console.log("Prediction Response:", response);

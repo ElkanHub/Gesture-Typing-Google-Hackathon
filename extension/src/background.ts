@@ -68,7 +68,7 @@ async function handlePrediction(trajectory: any[], analysis: any) {
             body: JSON.stringify({
                 trajectory,
                 anchors: analysis.anchors,
-                candidates: [],
+                candidates: message.candidates || [],
                 context: ""
             })
         });

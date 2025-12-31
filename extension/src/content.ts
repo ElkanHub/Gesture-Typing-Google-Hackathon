@@ -72,10 +72,11 @@ updateMode();
 document.addEventListener('keydown', (e) => {
     // Basic Filter: Only letters and space
     if (e.key.length === 1) {
-        const { x, y } = getKeyCoordinates(e.key);
-        processor.addPoint(e.key, x, y);
-        showKeyVisual(e.key);
-        console.log(`[Gesture] Key: ${e.key} (${x}, ${y})`);
+        const key = e.key.toLowerCase();
+        const { x, y } = getKeyCoordinates(key);
+        processor.addPoint(key, x, y);
+        showKeyVisual(key);
+        console.log(`[Gesture] Key: ${key} (${x}, ${y})`);
     } else if (e.key === 'Enter') {
         // Force confirm or newline if needed
     }

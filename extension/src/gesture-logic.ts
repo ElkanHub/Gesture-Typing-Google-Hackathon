@@ -57,8 +57,31 @@ export class GestureProcessor {
             return;
         }
 
-        // TODO: If local confidence high, insert text.
-        // Else, call API.
+        // --- Gesture Typing Logic ---
+        this.triggerPrediction(this.trajectory, result);
+    }
+
+    private async triggerPrediction(trajectory: Point[], analysis: any) {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'PREDICT_GESTURE',
+                trajectory,
+                analysis
+            });
+
+            if (response && response.word) {
+                this.insertText(response.word);
+            }
+        } catch (e) {
+            console.error("Prediction Error", e);
+        }
+    }
+
+    private insertText(text: string) {
+        const active = document.activeElement as HTMLElement;
+        if (active) {
+            document.execCommand('insertText', false, text + ' ');
+        }
     }
 
     private isLineRight(seq: string): boolean {

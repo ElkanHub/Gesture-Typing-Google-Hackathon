@@ -2,7 +2,14 @@
 // Listen for side panel toggles
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender) => {
+chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse) => {
+    if (message.type === 'PREDICT_GESTURE') {
+        handlePrediction(message.trajectory, message.analysis)
+            .then(word => sendResponse({ word }))
+            .catch(() => sendResponse({ word: null }));
+        return true; // Keep channel open
+    }
+
     if (message.type === 'AGENT_ACTION') {
         console.log("Background received action:", message.action);
 
@@ -50,5 +57,25 @@ async function handleAgentAction(action: string, text: string) {
     } catch (e) {
         console.error("Agent API Call Failed", e);
         chrome.runtime.sendMessage({ type: 'AGENT_STATUS', status: 'Error' }).catch(() => { });
+    }
+}
+
+async function handlePrediction(trajectory: any[], analysis: any) {
+    try {
+        const response = await fetch('http://localhost:3000/api/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                trajectory,
+                anchors: analysis.anchors,
+                candidates: [],
+                context: ""
+            })
+        });
+        const data = await response.json();
+        return data.predictions?.[0] || null;
+    } catch (e) {
+        console.error("Prediction failed", e);
+        return null;
     }
 }

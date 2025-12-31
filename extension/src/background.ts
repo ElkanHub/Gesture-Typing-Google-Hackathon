@@ -23,6 +23,9 @@ async function handleAgentAction(action: string, text: string) {
     const endpoint = `http://localhost:3000/api/agent/${action.toLowerCase()}`;
 
     try {
+        // Notify UI: Processing
+        chrome.runtime.sendMessage({ type: 'AGENT_STATUS', status: 'Thinking...' }).catch(() => { });
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -32,17 +35,20 @@ async function handleAgentAction(action: string, text: string) {
         const data = await response.json();
         console.log("Agent Response:", data);
 
-        // Send back to side panel (if open) or content script
-        // For now, simpler to log.
+        // Notify UI: Success
+        chrome.runtime.sendMessage({
+            type: 'AGENT_RESPONSE',
+            text: data.summary || data.text || "Done."
+        }).catch(() => { });
 
-        // Use TTS here if needed, or if API returns an audio URL.
+        // Play Audio if available
         if (data.audioUrl) {
-            // Play Audio
             const audio = new Audio(data.audioUrl);
             audio.play();
         }
 
     } catch (e) {
         console.error("Agent API Call Failed", e);
+        chrome.runtime.sendMessage({ type: 'AGENT_STATUS', status: 'Error' }).catch(() => { });
     }
 }

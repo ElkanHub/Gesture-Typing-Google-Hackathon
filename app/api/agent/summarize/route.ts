@@ -15,7 +15,7 @@ export async function POST(req: Request) {
         // Initialize Gemini
         // We assume GEMINI_API_KEY is in process.env
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const prompt = `Summarize the following article in a concise, natural, and engaging way for a busy reader. The summary should be readable in 30 seconds. \n\n Article: ${text.substring(0, 20000)}`;
 

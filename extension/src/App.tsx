@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 function App() {
     const [status, setStatus] = useState('Ready');
     const [content, setContent] = useState<string | null>(null);
+    const [mode, setMode] = useState<'AGENT' | 'TYPING'>('AGENT');
 
     useEffect(() => {
         // Listen for messages from Background Script
@@ -15,6 +16,9 @@ function App() {
             if (message.type === 'AGENT_STATUS') {
                 setStatus(message.status);
             }
+            if (message.type === 'MODE_CHANGED') {
+                setMode(message.mode);
+            }
         });
     }, []);
 
@@ -24,9 +28,18 @@ function App() {
                 Agent Stream
             </h1>
 
-            <div className="mb-4 text-sm font-mono text-neutral-400 border-b border-neutral-700 pb-2">
-                Status: <span className="text-emerald-400">{status}</span>
+            <div className="mb-4 text-sm font-mono text-neutral-400 border-b border-neutral-700 pb-2 flex justify-between items-center">
+                <span>Status: <span className="text-emerald-400">{status}</span></span>
+                <span className={`px-2 py-0.5 rounded text-xs border ${mode === 'AGENT' ? 'border-purple-500 text-purple-400' : 'border-blue-500 text-blue-400'}`}>
+                    {mode === 'AGENT' ? '🟢 Agent' : '⌨️ Typing'}
+                </span>
             </div>
+
+            {mode === 'TYPING' && !content && (
+                <div className="mb-4 p-2 bg-blue-900/30 border border-blue-500/30 rounded text-xs text-blue-300">
+                    Input Focused. Gesture Typing Enabled.
+                </div>
+            )}
 
             {content && (
                 <div className="prose prose-invert prose-sm">
@@ -36,7 +49,7 @@ function App() {
                 </div>
             )}
 
-            {!content && (
+            {!content && mode === 'AGENT' && (
                 <div className="text-center mt-10 text-neutral-600 italic">
                     Waiting for gesture...
                     <br />

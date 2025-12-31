@@ -41,6 +41,34 @@ function showKeyVisual(key: string) {
     }, 100);
 }
 
+
+// --- Mode Switching Logic ---
+function updateMode() {
+    const active = document.activeElement as HTMLElement;
+    const isInput = active && (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active.isContentEditable
+    );
+
+    if (isInput) {
+        processor.setAgentEnabled(false);
+        chrome.runtime.sendMessage({ type: 'MODE_CHANGED', mode: 'TYPING' }).catch(() => { });
+    } else {
+        processor.setAgentEnabled(true);
+        chrome.runtime.sendMessage({ type: 'MODE_CHANGED', mode: 'AGENT' }).catch(() => { });
+    }
+}
+
+document.addEventListener('focusin', updateMode);
+document.addEventListener('focusout', () => {
+    // Delay slightly to allow focus to move to new element
+    setTimeout(updateMode, 50);
+});
+
+// Initial check
+updateMode();
+
 document.addEventListener('keydown', (e) => {
     // Basic Filter: Only letters and space
     if (e.key.length === 1) {

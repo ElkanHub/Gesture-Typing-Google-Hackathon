@@ -12,6 +12,7 @@
       "vite/client",
       "chrome"
     ],
+    "jsx": "react-jsx",
     "skipLibCheck": true,
     /* Bundler mode */
     "moduleResolution": "bundler",

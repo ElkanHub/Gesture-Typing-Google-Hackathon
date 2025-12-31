@@ -127,3 +127,16 @@ For a deep dive into the architecture, algorithms, and 6-layer engine, see [APPD
 
 ---
 
+
+## 🧩 Chrome Extension (Agentic Layer)
+
+The project includes a companion Chrome Extension that extends the gesture capabilities to the entire browser.
+
+### Features
+*   **Context-Aware Modes**: Automatically switches behaviors based on your focus.
+    *   **⌨️ Typing Mode**: Focus on an input field to enable gesture typing anywhere on the web.
+    *   **🟢 Agent Mode**: Blur the input to enable "Agent Gestures" (e.g., swipe the home row to summarize the current page).
+*   **Side Panel Interface**: Displays the Agent's thought process and summaries in a non-intrusive side panel.
+*   **Universal Compatibility**: Works with standard HTML inputs, Textareas, and rich text editors (Gmail, Docs).
+
+For a complete technical breakdown of the extension's architecture, see [APPDOC3.md](./APPDOC3.md).

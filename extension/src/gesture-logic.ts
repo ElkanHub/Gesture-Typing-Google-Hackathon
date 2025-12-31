@@ -52,6 +52,13 @@ export class GestureProcessor {
         }, 300); // 300ms pause = End of Gesture
     }
 
+    private agentEnabled = true;
+
+    public setAgentEnabled(enabled: boolean) {
+        this.agentEnabled = enabled;
+        console.log(`[Gesture] Agent Mode: ${enabled ? 'ENABLED' : 'DISABLED'} (Typing Mode)`);
+    }
+
     public process() {
         if (this.trajectory.length < 3) return; // Ignore taps
 
@@ -59,23 +66,34 @@ export class GestureProcessor {
         const result = analyzeTrajectory(this.trajectory);
         console.log("Local Result:", result);
 
-        // --- Agentic Triggers ---
-        // Right Arrow (Summarize): Line from Left to Right (e.g. 'asdfghjkl')
-        if (this.isLineRight(result.sequence)) {
-            console.log("AGENT TRIGGER: SUMMARIZE (Webpage)");
-            this.triggerAgent('SUMMARIZE');
-            return;
-        }
+        // --- Logic Branch based on Mode ---
 
-        // Left Arrow (Read): Line from Right to Left (e.g. 'lkjhgfdsa')
-        if (this.isLineLeft(result.sequence)) {
-            console.log("AGENT TRIGGER: READ (Webpage)");
-            this.triggerAgent('READ');
-            return;
-        }
+        if (this.agentEnabled) {
+            // AGENT MODE (No Input Focus)
+            // Only allow Agent Triggers
 
-        // --- Gesture Typing Logic ---
-        this.triggerPrediction(this.trajectory, result);
+            // Right Arrow (Summarize)
+            if (this.isLineRight(result.sequence)) {
+                console.log("AGENT TRIGGER: SUMMARIZE (Webpage)");
+                this.triggerAgent('SUMMARIZE');
+                return;
+            }
+
+            // Left Arrow (Read)
+            if (this.isLineLeft(result.sequence)) {
+                console.log("AGENT TRIGGER: READ (Webpage)");
+                this.triggerAgent('READ');
+                return;
+            }
+
+            console.log("Agent Mode: No valid agent gesture detected.");
+        } else {
+            // TYPING MODE (Input Focus)
+            // Only allow Gesture Typing
+
+            console.log("Typing Mode: Triggering prediction...");
+            this.triggerPrediction(this.trajectory, result);
+        }
     }
 
     private async triggerPrediction(trajectory: Point[], analysis: any) {

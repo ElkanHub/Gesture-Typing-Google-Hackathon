@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Physical Gesture Agent",
+    "version": "1.0.0",
+    "action": {
+        "default_title": "Click to open panel"
+    },
+    "side_panel": {
+        "default_path": "index.html"
+    },
+    "background": {
+        "service_worker": "src/background.ts",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "js": [
+                "src/content.ts"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
+    "permissions": [
+        "sidePanel",
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "host_permissions": [
+        "http://localhost:3000/*"
+    ]
+}

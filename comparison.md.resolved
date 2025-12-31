@@ -1,0 +1,49 @@
+# Architecture Comparison: Main App vs Extension
+
+This document outlines the differences between the Main Application's gesture typing engine and the Chrome Extension's implementation, with a plan to align them for maximum accuracy.
+
+## 1. Trajectory Data Flow
+
+| Feature | Main App ([gesture-context.tsx](file:///e:/Projects/Physical%20gesture/components/gesture-context.tsx)) | Extension ([gesture-logic.ts](file:///e:/Projects/Physical%20gesture/extension/src/gesture-logic.ts)) | The "Why" |
+| :--- | :--- | :--- | :--- |
+| **Input Source** | `keydown` events (Physical Keyboard) | `keydown` events (Physical Keyboard) | Identical. |
+| **Data Stream** | **Raw / Sparse**<br>Only captures keys actually pressed. | **Dense / Interpolated**<br>Generates fake points between keys ([generateDensePath](file:///e:/Projects/Physical%20gesture/extension/src/gesture-logic.ts#169-199)). | **MAJOR DIFFERENCE**. The Main App trusts the user's specific key presses. The Extension "hallucinates" a path between keys, which adds noise (letters you skipped are now included). |
+| **Hit Test** | Checks if letters match the **Raw Keys**. | Checks if letters match the **Interpolated Line**. | Using the dense line makes the filter "see" letters you didn't press, leading to bad candidates. |
+
+**Recommendation**: Remove [generateDensePath](file:///e:/Projects/Physical%20gesture/extension/src/gesture-logic.ts#169-199) from the Extension. Use the raw `this.trajectory` exactly like the Main App.
+
+## 2. API Context
+
+| Feature | Main App | Extension | Impact |
+| :--- | :--- | :--- | :--- |
+| **Context** | Sends `committedText` (previous 500 chars). | Sends `""` (Empty String). | **Critical**. The AI cannot distinguish "there" from "their" without context. |
+| **KeyMap** | Sends `keyMap` to API. | Does not send `keyMap`. | API prompt doesn't strictly require it (uses standardized layout assumptions usually), but good to align. |
+
+**Recommendation**: Update [content.ts](file:///e:/Projects/Physical%20gesture/extension/src/content.ts) to capture the input field's current value and send it as `context`.
+
+## 3. Configuration & Tuning
+
+| Feature | Main App | Extension | Impact |
+| :--- | :--- | :--- | :--- |
+| **Filter Tolerance** | `80px` (Strict) | `150px` (Loose) | The Extension was made loose to compensate for the Dense Path noise. Once we revert to Raw Path, we should tighten this back to **80px** to filter out garbage words. |
+| **Pattern Cache** | Uses `localStorage` (Per Device) | Uses `chrome.storage.local` (Global) | **Aligned**. Both now use caching to skip API. |
+
+## 4. Proposed Architecture Alignment (The "Fix")
+
+To match the Main App's accuracy/flow:
+
+1.  **Remove Interpolation**: Delete [generateDensePath](file:///e:/Projects/Physical%20gesture/extension/src/gesture-logic.ts#169-199). Pass `this.trajectory` directly to [getVisualCandidates](file:///e:/Projects/Physical%20gesture/extension/src/lib/candidate-filter.ts#41-84).
+2.  **Tighten Filter**: Reset `MAX_DISTANCE_THRESHOLD` in [candidate-filter.ts](file:///e:/Projects/Physical%20gesture/lib/candidate-filter.ts) to `80`.
+3.  **Inject Context**: Modify `GestureLogic` to accept `context` (current text) and pass it to [background.ts](file:///e:/Projects/Physical%20gesture/extension/src/background.ts) -> API.
+
+### Visual Flow
+```mermaid
+graph TD
+    A[User Key Press] --> B[Raw Trajectory (Sparse)];
+    B --> C{Pattern Cache?};
+    C -- Yes --> D[Type Immediately];
+    C -- No --> E[Candidate Filter];
+    E -->|Raw Points + 80px Threshold| F[Valid Candidates];
+    F --> G[API Call];
+    G -->|Payload: Path + Candidates + CONTEXT| H[AI Prediction];
+```

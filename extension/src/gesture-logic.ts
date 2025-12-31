@@ -139,14 +139,12 @@ export class GestureProcessor {
                 // NEW: Perform Candidate Filtering locally
                 // We must interpolate the path because 'keydown' events are sparse (discrete),
                 // but the filter expects a continuous gesture path to hit all letters.
-                if (this.onStatusChange) this.onStatusChange('processing', 'Filtering...');
-
-                // Step 2: Dense Path
-                const denseTrajectory = this.generateDensePath(this.trajectory);
+                // ALIGNMENT: Use Raw Trajectory (No Interpolation)
+                //// const denseTrajectory = this.generateDensePath(this.trajectory);
 
                 // Step 3: Candidate Filter
                 const candidates = getVisualCandidates(
-                    denseTrajectory,
+                    this.trajectory, // Changed from denseTrajectory
                     result.anchors,
                     this.scaledKeyMap
                 );
@@ -158,7 +156,9 @@ export class GestureProcessor {
                 }
 
                 if (this.onStatusChange) this.onStatusChange('processing', 'Predicting...');
-                this.triggerPrediction(this.trajectory, result, candidates);
+
+                const context = this.getContext(); // Capture context
+                this.triggerPrediction(this.trajectory, result, candidates, context);
             }
         } catch (e: any) {
             console.error("Process Logic Error:", e);
@@ -166,45 +166,18 @@ export class GestureProcessor {
         }
     }
 
-    private generateDensePath(sparsePoints: Point[]): Point[] {
-        if (sparsePoints.length < 2) return sparsePoints;
+    // method removed
 
-        const dense: Point[] = [];
-        for (let i = 0; i < sparsePoints.length - 1; i++) {
-            const p1 = sparsePoints[i];
-            const p2 = sparsePoints[i + 1];
 
-            dense.push(p1);
-
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            // Interpolate every ~10 pixels
-            const steps = Math.floor(dist / 10);
-
-            for (let s = 1; s <= steps; s++) {
-                const t = s / (steps + 1);
-                dense.push({
-                    x: p1.x + dx * t,
-                    y: p1.y + dy * t,
-                    time: p1.time + (p2.time - p1.time) * t,
-                    key: '' // Intermediate points don't represent a key press
-                });
-            }
-        }
-        dense.push(sparsePoints[sparsePoints.length - 1]);
-        return dense;
-    }
-
-    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[]) {
+    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[], context: string) {
         try {
             console.log("Requesting prediction...");
             const response = await chrome.runtime.sendMessage({
                 type: 'PREDICT_GESTURE',
                 trajectory,
                 analysis,
-                candidates // Send the filtered list
+                candidates, // Send the filtered list
+                context // Send text context
             });
 
             console.log("Prediction Response:", response);
@@ -294,6 +267,28 @@ export class GestureProcessor {
         } else {
             document.execCommand('insertText', false, content);
         }
+    }
+
+    private getContext(): string {
+        const active = document.activeElement as HTMLElement;
+        if (!active) return "";
+
+        let text = "";
+        try {
+            if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+                const end = active.selectionStart || 0;
+                // Grab up to 500 chars before cursor
+                const start = Math.max(0, end - 500);
+                text = active.value.substring(start, end);
+            } else if (active.isContentEditable) {
+                // Approximate context for content editable
+                text = active.innerText || active.textContent || "";
+                if (text.length > 500) text = text.slice(-500);
+            }
+        } catch (e) {
+            console.warn("Failed to read context", e);
+        }
+        return text;
     }
 
     private isLineRight(seq: string): boolean {

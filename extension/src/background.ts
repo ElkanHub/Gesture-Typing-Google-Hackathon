@@ -4,9 +4,8 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse) => {
     if (message.type === 'PREDICT_GESTURE') {
-        handlePrediction(message.trajectory, message.analysis)
-            .then(word => sendResponse({ word }))
-            .catch(() => sendResponse({ word: null }));
+        handlePrediction(message.trajectory, message.analysis, message.candidates)
+            .then(result => sendResponse(result));
         return true; // Keep channel open
     }
 
@@ -60,7 +59,7 @@ async function handleAgentAction(action: string, text: string) {
     }
 }
 
-async function handlePrediction(trajectory: any[], analysis: any) {
+async function handlePrediction(trajectory: any[], analysis: any, candidates: any[]) {
     try {
         const response = await fetch('http://localhost:3000/api/predict', {
             method: 'POST',
@@ -68,14 +67,20 @@ async function handlePrediction(trajectory: any[], analysis: any) {
             body: JSON.stringify({
                 trajectory,
                 anchors: analysis.anchors,
-                candidates: message.candidates || [],
+                candidates: candidates || [],
                 context: ""
             })
         });
+
+        if (!response.ok) {
+            const txt = await response.text();
+            throw new Error(`API Error ${response.status}: ${txt.substring(0, 50)}`);
+        }
+
         const data = await response.json();
-        return data.predictions?.[0] || null;
-    } catch (e) {
+        return { success: true, word: data.predictions?.[0] || null, all: data.predictions };
+    } catch (e: any) {
         console.error("Prediction failed", e);
-        return null;
+        return { success: false, error: e.message || "Unknown error" };
     }
 }

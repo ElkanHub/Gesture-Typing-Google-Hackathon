@@ -1,6 +1,6 @@
 
-import { analyzeTrajectory } from '../../lib/shared/geometry';
-import { getVisualCandidates } from '../../lib/candidate-filter';
+import { analyzeTrajectory } from './lib/geometry';
+import { getVisualCandidates } from './lib/candidate-filter';
 import { KEY_MAP, getKeyCoordinates } from './keymap';
 
 export interface Point {
@@ -21,8 +21,10 @@ export class GestureProcessor {
 
     // Cache the scaled map
     private scaledKeyMap: any = null;
+    private onStatusChange?: (state: any, msg?: string) => void;
 
-    constructor() {
+    constructor(onStatusChange?: (state: any, msg?: string) => void) {
+        this.onStatusChange = onStatusChange;
         this.buildScaledKeyMap();
     }
 
@@ -77,51 +79,78 @@ export class GestureProcessor {
     }
 
     public process() {
-        if (this.trajectory.length < 3) return; // Ignore taps
+        try {
+            if (this.trajectory.length < 3) return; // Ignore taps
 
-        console.log("Analyzing Gesture Locally...", this.trajectory.length);
-        const result = analyzeTrajectory(this.trajectory);
-        console.log("Local Result:", result);
+            console.log("Analyzing Gesture Locally...", this.trajectory.length);
 
-        // --- Logic Branch based on Mode ---
-
-        if (this.agentEnabled) {
-            // AGENT MODE (No Input Focus)
-            // Only allow Agent Triggers
-
-            // Right Arrow (Summarize)
-            if (this.isLineRight(result.sequence)) {
-                console.log("AGENT TRIGGER: SUMMARIZE (Webpage)");
-                this.triggerAgent('SUMMARIZE');
+            // Step 1: Geometry Analysis
+            let result;
+            try {
+                result = analyzeTrajectory(this.trajectory);
+                console.log("Local Result (Anchors):", result.anchors);
+                console.log("Local Result (Sequence):", result.sequence);
+            } catch (err: any) {
+                console.error("Analysis Failed:", err);
+                if (this.onStatusChange) this.onStatusChange('error', `Analysis: ${err.message}`);
                 return;
             }
 
-            // Left Arrow (Read)
-            if (this.isLineLeft(result.sequence)) {
-                console.log("AGENT TRIGGER: READ (Webpage)");
-                this.triggerAgent('READ');
-                return;
+            if (!result.anchors || result.anchors.length === 0) {
+                console.warn("WARNING: No anchors detected. Trajectory might be too short or linear.");
             }
 
-            console.log("Agent Mode: No valid agent gesture detected.");
-        } else {
-            // TYPING MODE (Input Focus)
-            // Only allow Gesture Typing
+            // --- Logic Branch based on Mode ---
+            if (this.agentEnabled) {
+                // AGENT MODE (No Input Focus)
+                // Only allow Agent Triggers
 
-            // NEW: Perform Candidate Filtering locally
-            // We must interpolate the path because 'keydown' events are sparse (discrete),
-            // but the filter expects a continuous gesture path to hit all letters.
-            const denseTrajectory = this.generateDensePath(this.trajectory);
+                // Right Arrow (Summarize)
+                if (this.isLineRight(result.sequence)) {
+                    console.log("AGENT TRIGGER: SUMMARIZE (Webpage)");
+                    this.triggerAgent('SUMMARIZE');
+                    return;
+                }
 
-            const candidates = getVisualCandidates(
-                denseTrajectory,
-                result.anchors,
-                this.scaledKeyMap
-            );
-            console.log("Filtered Candidates:", candidates);
+                // Left Arrow (Read)
+                if (this.isLineLeft(result.sequence)) {
+                    console.log("AGENT TRIGGER: READ (Webpage)");
+                    this.triggerAgent('READ');
+                    return;
+                }
 
-            console.log("Typing Mode: Triggering prediction...");
-            this.triggerPrediction(this.trajectory, result, candidates);
+                console.log("Agent Mode: No valid agent gesture detected.");
+            } else {
+                // TYPING MODE (Input Focus)
+                // Only allow Gesture Typing
+
+                // NEW: Perform Candidate Filtering locally
+                // We must interpolate the path because 'keydown' events are sparse (discrete),
+                // but the filter expects a continuous gesture path to hit all letters.
+                if (this.onStatusChange) this.onStatusChange('processing', 'Filtering...');
+
+                // Step 2: Dense Path
+                const denseTrajectory = this.generateDensePath(this.trajectory);
+
+                // Step 3: Candidate Filter
+                const candidates = getVisualCandidates(
+                    denseTrajectory,
+                    result.anchors,
+                    this.scaledKeyMap
+                );
+                console.log("Filtered Candidates:", candidates);
+
+                if (candidates.length === 0) {
+                    console.warn("Local Filter found 0 candidates. Falling back to raw Gemini decoding.");
+                    // Do NOT return. Let Gemini try its best.
+                }
+
+                if (this.onStatusChange) this.onStatusChange('processing', 'Predicting...');
+                this.triggerPrediction(this.trajectory, result, candidates);
+            }
+        } catch (e: any) {
+            console.error("Process Logic Error:", e);
+            if (this.onStatusChange) this.onStatusChange('error', `Logic: ${e.message}`);
         }
     }
 
@@ -168,16 +197,23 @@ export class GestureProcessor {
 
             console.log("Prediction Response:", response);
 
-            if (response && response.word) {
-                // If the word matches the raw typing exactly, do nothing? 
-                // No, we might want to fix casing or just confirm. 
-                // But usually gesture is sloppy, so it won't match.
-
-                this.deleteLastChars(trajectory.length);
-                this.insertText(response.word);
+            if (response && response.success) {
+                if (response.word) {
+                    if (this.onStatusChange) this.onStatusChange('success', `Typed: ${response.word}`);
+                    this.deleteLastChars(trajectory.length);
+                    this.insertText(response.word);
+                } else {
+                    console.warn("API returned success but no word.");
+                    if (this.onStatusChange) this.onStatusChange('error', 'API: No word predicted');
+                }
+            } else {
+                const err = response?.error || "Unknown API Error";
+                console.error("API Failure:", err);
+                if (this.onStatusChange) this.onStatusChange('error', `API: ${err}`);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Prediction Error", e);
+            if (this.onStatusChange) this.onStatusChange('error', `Comm: ${e.message}`);
         }
     }
 

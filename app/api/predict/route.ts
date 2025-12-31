@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export async function POST(req: Request) {
     try {
@@ -59,14 +59,38 @@ export async function POST(req: Request) {
       }
     `;
 
-        const model = genAI.getGenerativeModel({
+        const response = await genAI.models.generateContent({
             model: "gemini-3-flash-preview",
-            generationConfig: { responseMimeType: "application/json" }
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingLevel: 'LOW' as any
+                }
+            }
         });
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const candidatesList = response.candidates;
+        let text = "";
+
+        if (candidatesList && candidatesList[0] && candidatesList[0].content && candidatesList[0].content.parts) {
+            const parts = candidatesList[0].content.parts;
+            // The answer part is the one without 'thought'
+            const answerPart = parts.find((p: any) => !p.thought);
+            if (answerPart) {
+                text = answerPart.text || "";
+            } else {
+                // Fallback if structure is different
+                text = parts[0]?.text || "";
+            }
+
+            // Log thoughts for debugging
+            const thoughtsPart = parts.find((p: any) => p.thought);
+            if (thoughtsPart) {
+                console.log("[Gemini 3 Thinking]:", thoughtsPart.text?.substring(0, 100) + "...");
+            }
+        }
 
         let json;
         try {

@@ -80,13 +80,20 @@ export class GestureProcessor {
 
     private async triggerPrediction(trajectory: Point[], analysis: any) {
         try {
+            console.log("Requesting prediction...");
             const response = await chrome.runtime.sendMessage({
                 type: 'PREDICT_GESTURE',
                 trajectory,
                 analysis
             });
 
+            console.log("Prediction Response:", response);
+
             if (response && response.word) {
+                // If the word matches the raw typing exactly, do nothing? 
+                // No, we might want to fix casing or just confirm. 
+                // But usually gesture is sloppy, so it won't match.
+
                 this.deleteLastChars(trajectory.length);
                 this.insertText(response.word);
             }
@@ -99,6 +106,8 @@ export class GestureProcessor {
         const active = document.activeElement as HTMLElement;
         if (!active) return;
 
+        console.log(`Deleting ${count} chars...`);
+
         // Strategy 1: Input/Textarea (Reliable)
         if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
             const start = active.selectionStart || 0;
@@ -106,24 +115,24 @@ export class GestureProcessor {
             // We assume the cursor is at the end of the gesture
             const newStart = Math.max(0, start - count);
 
-            // Modern "setRangeText" is cleaner if supported, but let's stick to execCommand for "Undo" support if possible? 
-            // Actually, execCommand 'delete' requires selection.
-
-            active.setSelectionRange(newStart, end);
-            document.execCommand('delete');
-            // active.value = active.value.substring(0, newStart) + active.value.substring(end); // fallback if execCommand fails
+            try {
+                if (typeof active.setRangeText === 'function') {
+                    active.setRangeText('', newStart, end, 'end');
+                } else {
+                    throw new Error("setRangeText not supported");
+                }
+            } catch (err) {
+                active.setSelectionRange(newStart, end);
+                document.execCommand('delete');
+            }
         }
         // Strategy 2: ContentEditable (Docs, Gmail)
         else if (active.isContentEditable) {
             const selection = window.getSelection();
             if (selection && selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                // Move start back by 'count' characters
-                // This is tricky in rich text. For simulated keypresses (hackathon), we might just issue N backspaces?
-                // Or try to select backwards.
+                // Reset selection to collapse to end first?
+                // selection.collapseToEnd(); // Usually already at end
 
-                // Simple hack: Press Backspace N times? No, can't trigger native events easily.
-                // Let's try extending selection backward.
                 for (let i = 0; i < count; i++) {
                     selection.modify('extend', 'backward', 'character');
                 }
@@ -134,8 +143,23 @@ export class GestureProcessor {
 
     private insertText(text: string) {
         const active = document.activeElement as HTMLElement;
-        if (active) {
-            document.execCommand('insertText', false, text + ' ');
+        const content = text + ' ';
+
+        if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+            try {
+                if (typeof active.setRangeText === 'function') {
+                    const start = active.selectionStart || 0;
+                    active.setRangeText(content, start, start, 'end');
+                    // Dispatch input event to notify frameworks (React, etc.)
+                    active.dispatchEvent(new Event('input', { bubbles: true }));
+                } else {
+                    throw new Error("setRangeText not supported");
+                }
+            } catch (err) {
+                document.execCommand('insertText', false, content);
+            }
+        } else {
+            document.execCommand('insertText', false, content);
         }
     }
 

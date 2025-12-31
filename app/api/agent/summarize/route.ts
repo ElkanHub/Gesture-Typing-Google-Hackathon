@@ -1,5 +1,4 @@
-
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -13,15 +12,16 @@ export async function POST(req: Request) {
         console.log("Generating summary for...", text.substring(0, 50));
 
         // Initialize Gemini
-        // We assume GEMINI_API_KEY is in process.env
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
         const prompt = `Summarize the following article in a concise, natural, and engaging way for a busy reader. The summary should be readable in 30 seconds. \n\n Article: ${text.substring(0, 20000)}`;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const summary = response.text();
+        const response = await genAI.models.generateContent({
+            model: "gemini-3-pro-preview",
+            contents: prompt
+        });
+
+        const summary = response.candidates?.[0]?.content?.parts?.[0]?.text || "Summary unavailable.";
 
         // TODO: Generate Audio using a TTS service or Gemini's future multimodal capabilities
         // For now, we return the text. The extension uses browser TTS or we can plug in OpenAI TTS here later.

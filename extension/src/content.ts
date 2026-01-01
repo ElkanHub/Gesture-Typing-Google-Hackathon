@@ -11,21 +11,22 @@ style.textContent = `
     #pg-suggestion-bar {
         position: fixed;
         z-index: 999999;
+        height: 56px;
         background: rgba(255, 255, 255, 0.9);
         backdrop-filter: blur(12px);
         border: 1px solid rgba(0,0,0,0.1);
-        border-radius: 12px;
-        padding: 6px 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-radius: 16px;
+        padding: 0 12px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         display: none;
         flex-direction: row;
         align-items: center;
-        gap: 6px;
-        font-family: sans-serif;
-        transition: opacity 0.2s, transform 0.2s;
+        gap: 8px;
+        font-family: system-ui, -apple-system, sans-serif;
+        transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         transform: translateY(10px);
         opacity: 0;
-        max-width: 400px;
+        max-width: 90vw;
         overflow-x: auto;
         white-space: nowrap;
         pointer-events: auto;
@@ -36,39 +37,57 @@ style.textContent = `
         opacity: 1;
     }
     .pg-candidate-btn {
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 20px;
-        padding: 4px 10px;
+        appearance: none;
+        outline: none;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: #374151;
+        border-radius: 9999px;
+        padding: 6px 16px;
         font-size: 14px;
-        color: #333;
+        font-weight: 600;
         cursor: pointer;
-        transition: all 0.1s;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+        line-height: 1.5;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     .pg-candidate-btn:hover {
-        background: #f0f0f0;
+        background: #f9fafb;
+        transform: scale(1.02);
+    }
+    .pg-candidate-btn:active {
+        transform: scale(0.98);
     }
     .pg-candidate-btn.pg-primary {
-        background: #3b82f6;
+        background: #2563eb;
         color: white;
-        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        border-color: transparent;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.15);
+    }
+    .pg-candidate-btn.pg-primary:hover {
+        background: #1d4ed8;
     }
     .pg-loader {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         border: 2px solid #e5e7eb;
         border-top-color: #3b82f6;
         border-radius: 50%;
         animation: pg-spin 0.8s linear infinite;
         margin-left: 8px;
+        flex-shrink: 0;
     }
     @keyframes pg-spin {
         to { transform: rotate(360deg); }
     }
     /* Hide scrollbar */
     #pg-suggestion-bar::-webkit-scrollbar {
-        height: 0px;
-        background: transparent;
+        display: none;
+    }
+    #pg-suggestion-bar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
 `;
 document.head.appendChild(style);
@@ -137,8 +156,8 @@ function updateSuggestions(candidates: string[], isPredicting: boolean) {
     suggestionBar.classList.add('pg-visible');
     repositionBar();
 
-    // Render candidates
-    candidates.slice(0, 10).forEach((word, index) => {
+    // Render candidates - Limit to first 6 explicitly
+    candidates.slice(0, 6).forEach((word, index) => {
         const btn = document.createElement('button');
         btn.textContent = word;
         btn.className = `pg-candidate-btn ${index === 0 ? 'pg-primary' : ''}`;

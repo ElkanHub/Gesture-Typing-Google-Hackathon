@@ -5,19 +5,33 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export async function POST(req: Request) {
     try {
-        const { trajectory, anchors, candidates, context } = await req.json();
+        const { sequence, trajectory, anchors, candidates, context } = await req.json();
 
-        if (!trajectory || trajectory.length === 0) {
+        // Support both architectures (Main App sends trajectory, Extension sends sequence)
+        let keySequence = sequence || "";
+        let startKey = "";
+        let endKey = "";
+
+        if (trajectory && trajectory.length > 0) {
+            keySequence = trajectory.map((p: any) => p.key).join('');
+            startKey = trajectory[0].key;
+            endKey = trajectory[trajectory.length - 1].key;
+        } else if (sequence) {
+            // Anchor-Based: Derive start/end from sequence string if anchors missing?
+            // Ideally anchors are provided.
+            startKey = sequence[0];
+            endKey = sequence[sequence.length - 1];
+        }
+
+        if (!keySequence) {
             return NextResponse.json({ predictions: [] });
         }
 
-        const keySequence = trajectory
-            .map((p: any) => p.key)
-            .join('');
-
         // Use Pre-calculated anchors from the Client
-        const startKey = trajectory[0].key;
-        const endKey = trajectory[trajectory.length - 1].key;
+        if (anchors && anchors.length > 0) {
+            startKey = anchors[0];
+            endKey = anchors[anchors.length - 1];
+        }
 
         const anchorInfo = anchors && anchors.length > 0
             ? `High Confidence Keys (Start, Pauses, Turns, End): ${anchors.join(' - ')}`

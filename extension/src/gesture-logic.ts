@@ -1,6 +1,6 @@
 
 import { analyzeTrajectory } from './lib/geometry';
-import { getVisualCandidates } from './lib/candidate-filter';
+import { getSequenceCandidates } from './lib/candidate-filter';
 import { KEY_MAP, getKeyCoordinates } from './keymap';
 import { PatternStore, initPatternStore } from './lib/pattern-store';
 import { COMMON_WORDS } from './lib/dictionary';
@@ -154,29 +154,25 @@ export class GestureProcessor {
                     }
                 }
 
-                // NEW: Perform Candidate Filtering locally
-                // We must interpolate the path because 'keydown' events are sparse (discrete),
-                // but the filter expects a continuous gesture path to hit all letters.
-                // ALIGNMENT: Use Raw Trajectory (No Interpolation)
-                //// const denseTrajectory = this.generateDensePath(this.trajectory);
+                // NEW: Perform Candidate Filtering locally (Anchor-Based)
+                // We depend purely on the Sequence and Anchors string data.
 
                 // Step 3: Candidate Filter
-                const candidates = getVisualCandidates(
-                    this.trajectory, // Changed from denseTrajectory
-                    result.anchors,
-                    this.scaledKeyMap
+                const candidates = getSequenceCandidates(
+                    result.sequence,
+                    result.anchors
                 );
-                console.log("Filtered Candidates:", candidates);
+                console.log("Filtered Candidates (Seq):", candidates);
 
                 if (candidates.length === 0) {
-                    console.warn("Local Filter found 0 candidates. Falling back to raw Gemini decoding.");
-                    // Do NOT return. Let Gemini try its best.
+                    console.warn("Local Filter found 0 candidates.");
                 }
 
                 if (this.onStatusChange) this.onStatusChange('processing', 'Predicting...');
 
                 const context = this.getContext(); // Capture context
-                this.triggerPrediction(this.trajectory, result, candidates, context, this.scaledKeyMap);
+                // Send SEQUENCE instead of TRAJECTORY
+                this.triggerPrediction(result.sequence, result, candidates, context, this.scaledKeyMap);
             }
         } catch (e: any) {
             console.error("Process Logic Error:", e);
@@ -187,16 +183,16 @@ export class GestureProcessor {
     // method removed
 
 
-    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[], context: string, keyMap: any) {
+    private async triggerPrediction(sequence: string, analysis: any, candidates: string[], context: string, keyMap: any) {
         try {
-            console.log("Requesting prediction...");
+            console.log("Requesting prediction (Seq)...");
             const response = await chrome.runtime.sendMessage({
                 type: 'PREDICT_GESTURE',
-                trajectory,
+                sequence, // Payload is now String
                 analysis,
-                candidates, // Send the filtered list
-                context, // Send text context
-                keyMap // Send virtual layout
+                candidates,
+                context,
+                keyMap
             });
 
             console.log("Prediction Response:", response);
@@ -206,11 +202,11 @@ export class GestureProcessor {
                     if (this.onStatusChange) this.onStatusChange('success', `Typed: ${response.word}`);
 
                     // SAVE PATTERN (Optimization)
-                    if (analysis && analysis.sequence) {
-                        PatternStore.learnPattern(analysis.sequence, response.word);
+                    if (sequence) {
+                        PatternStore.learnPattern(sequence, response.word);
                     }
 
-                    this.deleteLastChars(trajectory.length);
+                    this.deleteLastChars(sequence.length); // Delete amount based on raw sequence length
                     this.insertText(response.word);
                 } else {
                     console.warn("API returned success but no word.");

@@ -93,24 +93,31 @@ function updateMode() {
     }
 }
 
-document.addEventListener('focusin', updateMode);
-document.addEventListener('focusout', () => {
-    // Delay slightly to allow focus to move to new element
-    setTimeout(updateMode, 50);
-});
-
 // Initial check
-updateMode();
+try {
+    const processor = new GestureProcessor((state) => updateStatus(state));
+    updateMode();
 
-document.addEventListener('keydown', (e) => {
-    // Basic Filter: Only letters and space
-    if (e.key.length === 1) {
-        const key = e.key.toLowerCase();
-        const { x, y } = getKeyCoordinates(key);
-        processor.addPoint(key, x, y);
-        showKeyVisual(key);
-        console.log(`[Gesture] Key: ${key} (${x}, ${y})`);
-    } else if (e.key === 'Enter') {
-        // Force confirm or newline if needed
-    }
-});
+    document.addEventListener('keydown', (e) => {
+        // Basic Filter: Only letters and space
+        if (e.key.length === 1) {
+            const key = e.key.toLowerCase();
+            const { x, y } = getKeyCoordinates(key);
+            processor.addPoint(key, x, y);
+            showKeyVisual(key);
+            console.log(`[Gesture] Key: ${key} (${x}, ${y})`);
+        } else if (e.key === 'Enter') {
+            // Force confirm or newline if needed
+        }
+    });
+
+    document.addEventListener('focusin', updateMode);
+    document.addEventListener('focusout', () => {
+        // Delay slightly to allow focus to move to new element
+        setTimeout(updateMode, 50);
+    });
+
+} catch (err) {
+    console.error("FATAL ERROR IN EXTENSION CONTENT SCRIPT:", err);
+    updateStatus('error', 'Extension Crashed');
+}

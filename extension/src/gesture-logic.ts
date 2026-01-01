@@ -1,6 +1,6 @@
 
 import { analyzeTrajectory } from './lib/geometry';
-import { getSequenceCandidates } from './lib/candidate-filter';
+import { getVisualCandidates } from './lib/candidate-filter';
 import { KEY_MAP, getKeyCoordinates } from './keymap';
 import { PatternStore, initPatternStore } from './lib/pattern-store';
 import { COMMON_WORDS } from './lib/dictionary';
@@ -83,6 +83,23 @@ export class GestureProcessor {
 
     public process() {
         try {
+            // DYNAMIC MODE CHECK (Fix for stuck Agent Mode)
+            const active = document.activeElement as HTMLElement;
+            const isInput = active && (
+                active instanceof HTMLInputElement ||
+                active instanceof HTMLTextAreaElement ||
+                active.isContentEditable
+            );
+
+            // Force mode based on actual focus
+            if (isInput) {
+                this.agentEnabled = false;
+            } else {
+                this.agentEnabled = true;
+            }
+
+            console.log(`[Process] Real-time Mode: ${this.agentEnabled ? 'AGENT' : 'TYPING'} | Active Element: ${active?.tagName} | Trajectory: ${this.trajectory.length}`);
+
             if (this.trajectory.length < 3) return; // Ignore taps
 
             console.log("Analyzing Gesture Locally...", this.trajectory.length);
@@ -157,18 +174,26 @@ export class GestureProcessor {
                 // NEW: Perform Candidate Filtering locally (Anchor-Based)
                 // We depend purely on the Sequence and Anchors string data.
 
+                if (this.onStatusChange) this.onStatusChange('processing', 'Analyzing...');
+
                 // Step 3: Candidate Filter
-                const candidates = getSequenceCandidates(
-                    result.sequence,
-                    result.anchors
+                const candidates = getVisualCandidates(
+                    this.trajectory,
+                    result.anchors,
+                    this.scaledKeyMap
                 );
-                console.log("Filtered Candidates (Seq):", candidates);
+                console.log("Filtered Candidates (Visual):", candidates);
 
                 if (candidates.length === 0) {
                     console.warn("Local Filter found 0 candidates.");
+                    if (this.onStatusChange) {
+                        this.onStatusChange('error', 'No candidates found (Fit)');
+                        // Optimization: Don't call API if we are sure?
+                        // But let's let API try anyway for fuzzier matching
+                    }
+                } else {
+                    if (this.onStatusChange) this.onStatusChange('processing', `Found ${candidates.length} candidates...`);
                 }
-
-                if (this.onStatusChange) this.onStatusChange('processing', 'Predicting...');
 
                 const context = this.getContext(); // Capture context
                 // Send SEQUENCE instead of TRAJECTORY
@@ -186,6 +211,8 @@ export class GestureProcessor {
     private async triggerPrediction(sequence: string, analysis: any, candidates: string[], context: string, keyMap: any) {
         try {
             console.log("Requesting prediction (Seq)...");
+            if (this.onStatusChange) this.onStatusChange('processing', 'API Request Sent...');
+
             const response = await chrome.runtime.sendMessage({
                 type: 'PREDICT_GESTURE',
                 sequence, // Payload is now String
@@ -199,27 +226,32 @@ export class GestureProcessor {
 
             if (response && response.success) {
                 if (response.word) {
-                    if (this.onStatusChange) this.onStatusChange('success', `Typed: ${response.word}`);
+                    if (this.onStatusChange) this.onStatusChange('success', `API: ${response.word}`);
 
                     // SAVE PATTERN (Optimization)
                     if (sequence) {
                         PatternStore.learnPattern(sequence, response.word);
                     }
 
+                    if (this.onStatusChange) this.onStatusChange('processing', `Deleting ${sequence.length} chars...`);
                     this.deleteLastChars(sequence.length); // Delete amount based on raw sequence length
+
+                    if (this.onStatusChange) this.onStatusChange('processing', `Inserting ${response.word}...`);
                     this.insertText(response.word);
+
+                    if (this.onStatusChange) this.onStatusChange('success', `Done: ${response.word}`);
                 } else {
                     console.warn("API returned success but no word.");
-                    if (this.onStatusChange) this.onStatusChange('error', 'API: No word predicted');
+                    if (this.onStatusChange) this.onStatusChange('error', 'API: Success but NO WORD');
                 }
             } else {
                 const err = response?.error || "Unknown API Error";
                 console.error("API Failure:", err);
-                if (this.onStatusChange) this.onStatusChange('error', `API: ${err}`);
+                if (this.onStatusChange) this.onStatusChange('error', `API Fail: ${err}`);
             }
         } catch (e: any) {
             console.error("Prediction Error", e);
-            if (this.onStatusChange) this.onStatusChange('error', `Comm: ${e.message}`);
+            if (this.onStatusChange) this.onStatusChange('error', `Comm Error: ${e.message}`);
         }
     }
 

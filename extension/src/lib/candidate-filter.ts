@@ -42,7 +42,7 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
     if (trajectory.length < 2) return [];
 
     const startKey = trajectory[0].key;
-    const endKey = trajectory[trajectory.length - 1].key;
+    const endKey = trajectory[trajectory.length - 1].key!;
 
     if (!startKey || !endKey) return [];
 
@@ -51,7 +51,7 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
         const w = word.toLowerCase();
 
         // 1. Basic Start/End Check (Strict)
-        if (!w.startsWith(startKey) || !w.endsWith(endKey || '')) {
+        if (!w.startsWith(startKey) || !w.endsWith(endKey)) {
             return false;
         }
 
@@ -71,12 +71,13 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
         // 4. Geometric "Hit Test" (NEW)
         // Ensure every letter in the word was actually "touched" or approached
         if (!isWordPhysicallyPossible(w, trajectory, keyMap)) {
+            // console.log(`Rejected ${w} (Hit Test Failed)`);
             return false;
         }
 
         return true;
     });
 
-    // Limit to top 20 candidates
+    // Limit to top 20 candidates to avoid blowing up prompt
     return visualCandidates.slice(0, 20);
 }

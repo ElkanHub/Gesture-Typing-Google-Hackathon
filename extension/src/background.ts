@@ -10,16 +10,32 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
     }
 
     if (message.type === 'AGENT_ACTION') {
-        console.log("Background received action:", message.action);
+        console.log("Agent Action:", message.action);
 
-        // Open the side panel to show progress
+        // 1. Attempt to Open Side Panel (Might fail if gesture token lost)
         if (sender.tab?.id) {
-            // We can't programmatically open side panel easily without user gesture unless on click
-            // But for hackathon, let's assume it's open or we use a bubble.
-            // Actually, Chrome allows opening side panel on interaction? 
-            // "chrome.sidePanel.open" requires user interaction.
-            // We will rely on user having opened it, or send a toast content script.
+            chrome.sidePanel.open({ tabId: sender.tab.id }).catch((err) => {
+                console.warn("Could not auto-open panel (likely missing gesture):", err);
+            });
         }
+
+        // 2. Persist Initial State
+        const timestamp = Date.now();
+        const initialMessages = [
+            { id: `u-${timestamp}`, role: 'user', content: `Action: ${message.action}`, timestamp },
+            { id: `a-${timestamp}`, role: 'agent', content: 'Thinking...', timestamp: timestamp + 1, actions: [] }
+        ];
+
+        // We accumulate, but for now let's just push to a list
+        chrome.storage.session.get(['chatHistory'], (result) => {
+            const rawHistory = result.chatHistory;
+            const history: any[] = Array.isArray(rawHistory) ? rawHistory : [];
+            const newHistory = [...history, ...initialMessages];
+            chrome.storage.session.set({ chatHistory: newHistory });
+
+            // Notify open UI
+            chrome.runtime.sendMessage({ type: 'CHAT_UPDATE', messages: newHistory }).catch(() => { });
+        });
 
         handleAgentAction(message.action, message.text);
     }
@@ -29,9 +45,6 @@ async function handleAgentAction(action: string, text: string) {
     const endpoint = `http://localhost:3000/api/agent/${action.toLowerCase()}`;
 
     try {
-        // Notify UI: Processing
-        chrome.runtime.sendMessage({ type: 'AGENT_STATUS', status: 'Thinking...' }).catch(() => { });
-
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -39,23 +52,39 @@ async function handleAgentAction(action: string, text: string) {
         });
 
         const data = await response.json();
-        console.log("Agent Response:", data);
+        const responseText = data.summary || data.text || "Done.";
 
-        // Notify UI: Success
-        chrome.runtime.sendMessage({
-            type: 'AGENT_RESPONSE',
-            text: data.summary || data.text || "Done."
-        }).catch(() => { });
+        // Update History with Real Response
+        chrome.storage.session.get(['chatHistory'], (result) => {
+            const rawHistory = result.chatHistory;
+            const history: any[] = Array.isArray(rawHistory) ? rawHistory : [];
+            // Find the last "Thinking..." agent message and update it
+            const updatedHistory = history.map((msg: any, index: number) => {
+                if (index === history.length - 1 && msg.role === 'agent') {
+                    return { ...msg, content: responseText, actions: ['copy'] };
+                }
+                return msg;
+            });
 
-        // Play Audio if available
-        if (data.audioUrl) {
-            const audio = new Audio(data.audioUrl);
-            audio.play();
-        }
+            chrome.storage.session.set({ chatHistory: updatedHistory });
+            chrome.runtime.sendMessage({ type: 'CHAT_UPDATE', messages: updatedHistory }).catch(() => { });
+        });
 
     } catch (e) {
         console.error("Agent API Call Failed", e);
-        chrome.runtime.sendMessage({ type: 'AGENT_STATUS', status: 'Error' }).catch(() => { });
+        // Error State
+        chrome.storage.session.get(['chatHistory'], (result) => {
+            const rawHistory = result.chatHistory;
+            const history: any[] = Array.isArray(rawHistory) ? rawHistory : [];
+            const updatedHistory = [...history, {
+                id: `err-${Date.now()}`,
+                role: 'agent',
+                content: "Error: Could not reach agent.",
+                timestamp: Date.now()
+            }];
+            chrome.storage.session.set({ chatHistory: updatedHistory });
+            chrome.runtime.sendMessage({ type: 'CHAT_UPDATE', messages: updatedHistory }).catch(() => { });
+        });
     }
 }
 

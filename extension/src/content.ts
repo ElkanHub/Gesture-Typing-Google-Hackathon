@@ -1,7 +1,9 @@
 import { GestureProcessor } from './gesture-logic';
 import { getKeyCoordinates } from './keymap';
 
-console.log('Physical Gesture Extension: Content Script Loaded');
+console.log("Physical Gesture Extension: Content Script Loaded");
+
+// Processor initialized at bottom
 
 // --- STYLES ---
 const style = document.createElement('style');

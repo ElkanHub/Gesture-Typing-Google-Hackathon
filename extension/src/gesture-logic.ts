@@ -8,7 +8,6 @@ import type { Point } from './lib/types';
 
 export class GestureProcessor {
     private trajectory: Point[] = [];
-    private _isTyping = false;
     private lastKeyTime = 0;
     private timeoutId: any = null;
     private scaledKeyMap: any = null;
@@ -41,21 +40,19 @@ export class GestureProcessor {
 
         if (now - this.lastKeyTime > 800) {
             this.trajectory = [];
-            this._isTyping = false;
         }
 
         this.trajectory.push({ x, y, time: now, key });
         this.lastKeyTime = now;
 
         if (this.trajectory.length > 2) {
-            this._isTyping = true;
+            // this._isTyping = true;
         }
 
         this.timeoutId = setTimeout(() => {
             if (this.trajectory.length > 0) {
                 this.process();
                 this.trajectory = [];
-                this._isTyping = false;
             }
         }, 350);
     }
@@ -123,6 +120,9 @@ export class GestureProcessor {
     }
 
     private handleTypingGestures(result: { sequence: string, anchors: string[] }) {
+        // Capture length BEFORE it is cleared by the timeout!
+        const deleteCount = this.trajectory.length;
+
         if (this.onStatusChange) this.onStatusChange('processing', 'Analyzing...');
 
         // A. Cache Check
@@ -130,7 +130,7 @@ export class GestureProcessor {
         if (cachedWord) {
             console.log(`[Cache Hit] ${cachedWord}`);
             if (this.onStatusChange) this.onStatusChange('success', `Cached: ${cachedWord}`);
-            this.replaceText(cachedWord);
+            this.replaceText(cachedWord, deleteCount);
             return;
         }
 
@@ -141,7 +141,7 @@ export class GestureProcessor {
                 console.log(`[Anchor Match] ${anchorWord}`);
                 PatternStore.learnPattern(result.sequence, anchorWord);
                 if (this.onStatusChange) this.onStatusChange('success', `Direct: ${anchorWord}`);
-                this.replaceText(anchorWord);
+                this.replaceText(anchorWord, deleteCount);
                 return;
             }
         }
@@ -163,10 +163,10 @@ export class GestureProcessor {
 
         // D. API Prediction
         const context = this.getContext();
-        this.triggerPrediction(result.sequence, result, candidates, context);
+        this.triggerPrediction(result.sequence, result, candidates, context, deleteCount);
     }
 
-    private async triggerPrediction(sequence: string, analysis: any, candidates: string[], context: string) {
+    private async triggerPrediction(sequence: string, analysis: any, candidates: string[], context: string, deleteCount: number) {
         try {
             if (this.onStatusChange) this.onStatusChange('processing', 'API Request...');
             console.log("Sending to API...");
@@ -186,7 +186,7 @@ export class GestureProcessor {
                 if (this.onStatusChange) this.onStatusChange('success', `API: ${response.word}`);
                 // Learn
                 PatternStore.learnPattern(sequence, response.word);
-                this.replaceText(response.word);
+                this.replaceText(response.word, deleteCount);
             } else {
                 console.warn("API Failure/No Word", response);
                 if (this.onStatusChange) this.onStatusChange('error', 'No prediction');
@@ -197,7 +197,7 @@ export class GestureProcessor {
         }
     }
 
-    private replaceText(word: string) {
+    private replaceText(word: string, deleteCount: number) {
         // DELETE raw sequence length
         // We approximate the number of characters to delete by the 'time' or just 'sequence length'
         // Actually, for raw stream visualization, the user sees characters appearing. 
@@ -211,7 +211,6 @@ export class GestureProcessor {
         // Realistically, the user typed `this.trajectory.length` characters? 
         // Usually yes, if every point corresponds to a keydown.
 
-        const deleteCount = this.trajectory.length;
         console.log(`Deleting ${deleteCount} chars and inserting "${word}"`);
 
         this.deleteLastChars(deleteCount);

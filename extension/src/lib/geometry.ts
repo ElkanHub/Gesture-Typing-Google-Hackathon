@@ -1,10 +1,4 @@
-
-export interface Point {
-    x: number;
-    y: number;
-    time: number;
-    key: string;
-}
+import type { Point } from './types';
 
 export const analyzeTrajectory = (path: Point[]) => {
     if (!path.length) return { sequence: "", anchors: [] as string[] };

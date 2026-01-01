@@ -3,6 +3,7 @@ import { analyzeTrajectory } from './lib/geometry';
 import { getVisualCandidates } from './lib/candidate-filter';
 import { KEY_MAP, getKeyCoordinates } from './keymap';
 import { PatternStore, initPatternStore } from './lib/pattern-store';
+import { COMMON_WORDS } from './lib/dictionary';
 
 export interface Point {
     x: number;
@@ -134,6 +135,23 @@ export class GestureProcessor {
                     this.deleteLastChars(this.trajectory.length);
                     this.insertText(cachedWord);
                     return; // SKIP API
+                }
+
+                // 2. ANCHOR MATCH (Alignment with Main App)
+                // If the user's key stops literally spell a common word, accept it.
+                if (result.anchors && result.anchors.length >= 3) {
+                    const anchorWord = result.anchors.join('');
+                    if (COMMON_WORDS.includes(anchorWord)) {
+                        console.log(`[Anchor Match] ${anchorWord}`);
+                        if (this.onStatusChange) this.onStatusChange('success', `Direct: ${anchorWord}`);
+
+                        // Learn this specific path for this word
+                        PatternStore.learnPattern(result.sequence, anchorWord);
+
+                        this.deleteLastChars(this.trajectory.length);
+                        this.insertText(anchorWord);
+                        return; // SKIP API
+                    }
                 }
 
                 // NEW: Perform Candidate Filtering locally

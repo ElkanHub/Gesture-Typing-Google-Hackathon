@@ -176,7 +176,7 @@ export class GestureProcessor {
                 if (this.onStatusChange) this.onStatusChange('processing', 'Predicting...');
 
                 const context = this.getContext(); // Capture context
-                this.triggerPrediction(this.trajectory, result, candidates, context);
+                this.triggerPrediction(this.trajectory, result, candidates, context, this.scaledKeyMap);
             }
         } catch (e: any) {
             console.error("Process Logic Error:", e);
@@ -187,7 +187,7 @@ export class GestureProcessor {
     // method removed
 
 
-    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[], context: string) {
+    private async triggerPrediction(trajectory: Point[], analysis: any, candidates: string[], context: string, keyMap: any) {
         try {
             console.log("Requesting prediction...");
             const response = await chrome.runtime.sendMessage({
@@ -195,7 +195,8 @@ export class GestureProcessor {
                 trajectory,
                 analysis,
                 candidates, // Send the filtered list
-                context // Send text context
+                context, // Send text context
+                keyMap // Send virtual layout
             });
 
             console.log("Prediction Response:", response);

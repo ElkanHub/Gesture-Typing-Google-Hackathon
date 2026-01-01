@@ -4,7 +4,7 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse) => {
     if (message.type === 'PREDICT_GESTURE') {
-        handlePrediction(message.trajectory, message.analysis, message.candidates, message.context)
+        handlePrediction(message.trajectory, message.analysis, message.candidates, message.context, message.keyMap)
             .then(result => sendResponse(result));
         return true; // Keep channel open
     }
@@ -59,7 +59,7 @@ async function handleAgentAction(action: string, text: string) {
     }
 }
 
-async function handlePrediction(trajectory: any[], analysis: any, candidates: any[], context: string) {
+async function handlePrediction(trajectory: any[], analysis: any, candidates: any[], context: string, keyMap: any) {
     try {
         const response = await fetch('http://localhost:3000/api/predict', {
             method: 'POST',
@@ -68,7 +68,8 @@ async function handlePrediction(trajectory: any[], analysis: any, candidates: an
                 trajectory,
                 anchors: analysis.anchors,
                 candidates: candidates || [],
-                context: context || ""
+                context: context || "",
+                keyMap: keyMap || {}
             })
         });
 

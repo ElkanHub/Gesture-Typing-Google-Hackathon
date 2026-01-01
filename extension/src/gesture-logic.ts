@@ -12,12 +12,17 @@ export class GestureProcessor {
     private timeoutId: any = null;
     private scaledKeyMap: any = null;
     private onStatusChange?: (state: any, msg?: string) => void;
+    private onPredictions?: (candidates: string[], isPredicting: boolean) => void;
 
     // Default to true, but will be checked dynamically
     private agentEnabled = true;
 
-    constructor(onStatusChange?: (state: any, msg?: string) => void) {
+    constructor(
+        onStatusChange?: (state: any, msg?: string) => void,
+        onPredictions?: (candidates: string[], isPredicting: boolean) => void
+    ) {
         this.onStatusChange = onStatusChange;
+        this.onPredictions = onPredictions;
         this.buildScaledKeyMap();
         initPatternStore();
     }
@@ -154,6 +159,9 @@ export class GestureProcessor {
         );
         console.log(`[Filter] Candidates: ${candidates.length}`, candidates);
 
+        // Emit local candidates immediately
+        if (this.onPredictions) this.onPredictions(candidates, true);
+
         if (candidates.length > 0) {
             if (this.onStatusChange) this.onStatusChange('processing', `Found ${candidates.length} candidates...`);
         } else {
@@ -186,35 +194,47 @@ export class GestureProcessor {
                 if (this.onStatusChange) this.onStatusChange('success', `API: ${response.word}`);
                 // Learn
                 PatternStore.learnPattern(sequence, response.word);
+
+                // Update suggestions with API result at the front
+                const finalCandidates = Array.from(new Set([response.word, ...candidates]));
+                if (this.onPredictions) this.onPredictions(finalCandidates, false);
+
                 this.replaceText(response.word, deleteCount);
             } else {
                 console.warn("API Failure/No Word", response);
                 if (this.onStatusChange) this.onStatusChange('error', 'No prediction');
+                if (this.onPredictions) this.onPredictions(candidates, false);
             }
         } catch (e: any) {
             console.error("API call error", e);
             if (this.onStatusChange) this.onStatusChange('error', 'Network Error');
+            if (this.onPredictions) this.onPredictions(candidates, false);
         }
     }
 
-    private replaceText(word: string, deleteCount: number) {
-        // DELETE raw sequence length
-        // We approximate the number of characters to delete by the 'time' or just 'sequence length'
-        // Actually, for raw stream visualization, the user sees characters appearing. 
-        // We should delete however many characters were typed during this gesture.
-        // A simple heuristic is trajectory length is too many.
-        // Let's rely on the fact that the 'addPoint' logic doesn't insert text directly? 
-        // WAIT. Content.ts inserts nothing. The BROWSER inserts keys because they are keydown/keypress.
-        // We need to delete the number of characters that were actually typed.
-        // Since we don't track exact keypress successes, we estimate based on sequence length or trajectory length?
-        // No, the sequence string is just unique keys.
-        // Realistically, the user typed `this.trajectory.length` characters? 
-        // Usually yes, if every point corresponds to a keydown.
+    private lastInsertedLength = 0;
 
+    public replaceText(word: string, deleteCount: number) {
         console.log(`Deleting ${deleteCount} chars and inserting "${word}"`);
 
         this.deleteLastChars(deleteCount);
         this.insertText(word);
+
+        // Track for correction
+        this.lastInsertedLength = word.length + 1; // +1 for the space we added
+    }
+
+    public correctText(newWord: string) {
+        if (this.lastInsertedLength > 0) {
+            console.log(`Correcting: Deleting ${this.lastInsertedLength}, inserting ${newWord}`);
+            this.deleteLastChars(this.lastInsertedLength);
+            this.insertText(newWord);
+            this.lastInsertedLength = newWord.length + 1;
+        } else {
+            // Fallback: Just insert
+            this.insertText(newWord);
+            this.lastInsertedLength = newWord.length + 1;
+        }
     }
 
     private deleteLastChars(count: number) {

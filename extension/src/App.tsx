@@ -111,7 +111,7 @@ function App() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-slate-50 font-sans selection:bg-indigo-100 overflow-hidden">
+        <div className="flex flex-col h-screen bg-black/50 font-sans selection:bg-indigo-100 overflow-hidden">
             {/* Background Gradient Mesh */}
             <div className="fixed inset-0 pointer-events-none opacity-40">
                 <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-200/50 blur-[100px]" />
@@ -121,15 +121,15 @@ function App() {
             {/* Header */}
             <header className="flex-none px-5 py-4 border-b border-indigo-100 bg-white/70 backdrop-blur-xl sticky top-0 z-50 flex items-center justify-between shadow-sm/50">
                 <div className="flex items-center gap-3">
-                    <div className="relative group">
+                    {/* <div className="relative group">
                         <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-600 to-purple-600 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-                        <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-1 ring-black/5">
+                        <div className="relative w-9 h-9 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-1 ring-black/5">
                             GT
                         </div>
-                    </div>
+                    </div> */}
                     <div>
                         <h1 className="font-bold text-base tracking-tight leading-none text-slate-800 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">Gesture Typing</h1>
-                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">AI Companion</p>
+                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">Prototype </p>
                     </div>
                 </div>
 
@@ -186,7 +186,7 @@ function App() {
                             <div className="relative max-w-[90%] flex drop-shadow-sm">
                                 {/* Message Content */}
                                 <div className={cn(
-                                    "rounded-2xl px-5 py-3.5 text-sm leading-relaxed whitespace-pre-wrap shadow-sm border transition-transform duration-200",
+                                    " rounded px-5 py-3.5 text-sm leading-relaxed whitespace-pre-wrap shadow-sm border transition-transform duration-200",
                                     msg.role === 'user'
                                         ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-transparent rounded-tr-sm shadow-indigo-200"
                                         : "bg-white border-slate-100 text-slate-700 rounded-tl-sm w-full shadow-slate-200/50"

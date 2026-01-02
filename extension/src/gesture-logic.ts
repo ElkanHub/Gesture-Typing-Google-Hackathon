@@ -298,9 +298,17 @@ export class GestureProcessor {
             const active = document.activeElement as HTMLElement;
             if (!active) return "";
             if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
-                return active.value.slice(Math.max(0, active.selectionStart! - 100), active.selectionStart!);
+                // User requested "all text". We'll grab up to 5000 chars to be safe but effective.
+                // We prioritize text BEFORE the cursor for prediction context.
+                const cursor = active.selectionStart || 0;
+                const text = active.value || "";
+
+                // If text is huge, take 5000 chars preceding cursor
+                const start = Math.max(0, cursor - 5000);
+                return text.slice(start, cursor);
             }
-            return active.innerText?.slice(-100) || "";
+            // For contentEditable, innerText is the best approximation
+            return active.innerText?.slice(-5000) || "";
         } catch (e) { return ""; }
     }
 

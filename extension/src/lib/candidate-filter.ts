@@ -46,6 +46,10 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
 
     if (!startKey || !endKey) return [];
 
+    // Build a Set of all keys touched in the trajectory for the "Negative Constraint"
+    // "candidates should be words that... do not have any other letter that is not part of the raw stream"
+    const trajectoryKeySet = new Set(trajectory.map(p => p.key));
+
     // Filter Logic
     const visualCandidates = COMMON_WORDS.filter(word => {
         const w = word.toLowerCase();
@@ -56,11 +60,17 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
         }
 
         // 2. Length Heuristic (Lenient)
-        // Word length shouldn't be drastically different from anchor count + fuzz
         if (w.length < anchors.length) return false;
 
-        // 3. Anchor Subsequence Check
-        // The word must contain the anchors in order
+        // 3. Strict Negative Constraint (NEW)
+        // Ensure every character in the word exists in the raw trajectory stream.
+        for (const char of w) {
+            if (!trajectoryKeySet.has(char)) {
+                return false;
+            }
+        }
+
+        // 4. Anchor Subsequence Check
         let lastIndex = -1;
         for (const anchor of anchors) {
             const idx = w.indexOf(anchor, lastIndex + 1);
@@ -68,16 +78,14 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
             lastIndex = idx;
         }
 
-        // 4. Geometric "Hit Test" (NEW)
-        // Ensure every letter in the word was actually "touched" or approached
+        // 5. Geometric "Hit Test"
         if (!isWordPhysicallyPossible(w, trajectory, keyMap)) {
-            // console.log(`Rejected ${w} (Hit Test Failed)`);
             return false;
         }
 
         return true;
     });
 
-    // Limit to top 20 candidates to avoid blowing up prompt
-    return visualCandidates.slice(0, 20);
+    // Limit to top 6 candidates immediately (as they are high quality now)
+    return visualCandidates.slice(0, 6);
 }

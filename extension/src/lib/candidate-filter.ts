@@ -50,27 +50,20 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
     // "candidates should be words that... do not have any other letter that is not part of the raw stream"
     const trajectoryKeySet = new Set(trajectory.map(p => p.key));
 
-    // Filter Logic
-    const visualCandidates = COMMON_WORDS.filter(word => {
+    // Filter Logic with Backfill Strategy
+
+    // Pass 1: Strict Candidates (Negative Constraint Enforced)
+    const strictCandidates = COMMON_WORDS.filter(word => {
         const w = word.toLowerCase();
-
-        // 1. Basic Start/End Check (Strict)
-        if (!w.startsWith(startKey) || !w.endsWith(endKey)) {
-            return false;
-        }
-
-        // 2. Length Heuristic (Lenient)
+        if (!w.startsWith(startKey) || !w.endsWith(endKey)) return false;
         if (w.length < anchors.length) return false;
 
-        // 3. Strict Negative Constraint (NEW)
-        // Ensure every character in the word exists in the raw trajectory stream.
+        // Strict Negative Constraint
         for (const char of w) {
-            if (!trajectoryKeySet.has(char)) {
-                return false;
-            }
+            if (!trajectoryKeySet.has(char)) return false;
         }
 
-        // 4. Anchor Subsequence Check
+        // Anchor Check
         let lastIndex = -1;
         for (const anchor of anchors) {
             const idx = w.indexOf(anchor, lastIndex + 1);
@@ -78,14 +71,44 @@ export function getVisualCandidates(trajectory: Point[], anchors: string[], keyM
             lastIndex = idx;
         }
 
-        // 5. Geometric "Hit Test"
-        if (!isWordPhysicallyPossible(w, trajectory, keyMap)) {
-            return false;
-        }
+        // Geometric Hit Test
+        if (!isWordPhysicallyPossible(w, trajectory, keyMap)) return false;
 
         return true;
     });
 
-    // Limit to top 6 candidates immediately (as they are high quality now)
-    return visualCandidates.slice(0, 6);
+    // Pass 2: Lenient Candidates (Backfill if necessary)
+    // Only run if strict candidates < 6
+    let candidates = [...strictCandidates];
+
+    if (candidates.length < 6) {
+        const lenientCandidates = COMMON_WORDS.filter(word => {
+            const w = word.toLowerCase();
+            // Skip if already in strict list
+            if (candidates.includes(word)) return false;
+
+            // Still need Start/End
+            if (!w.startsWith(startKey) || !w.endsWith(endKey)) return false;
+
+            // Relaxed Length: Allow words slightly shorter than strict anchor count
+            // (e.g. if we found 5 anchors, maybe the word is only 4 letters and we had a phantom anchor)
+            if (w.length < anchors.length - 2) return false;
+
+            // *SKIP* Strict Negative Constraint
+
+            // *SKIP* Anchor Subsequence Check in lenient mode
+            // (We trust Start/End + Geometry to find plausible alternatives)
+
+            // Geometric Hit Test (Crucial)
+            if (!isWordPhysicallyPossible(w, trajectory, keyMap)) return false;
+
+            return true;
+        });
+
+        // Fill up to 6
+        const needed = 6 - candidates.length;
+        candidates = [...candidates, ...lenientCandidates.slice(0, needed)];
+    }
+
+    return candidates.slice(0, 6);
 }

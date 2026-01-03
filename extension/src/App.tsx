@@ -206,26 +206,51 @@ function App() {
         }
     };
 
-    const startMicrophone = (socket: WebSocket) => {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContext({ sampleRate: 16000 });
+    const startMicrophone = async (socket: WebSocket) => {
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            const ctx = new AudioContext({ sampleRate: 16000 });
 
-        navigator.mediaDevices.getUserMedia({
-            audio: {
-                sampleRate: 16000,
-                channelCount: 1,
-                echoCancellation: true,
-                autoGainControl: true,
-                noiseSuppression: true
-            }
-        }).then(stream => {
+            // Inline AudioWorklet Processor code to avoid file loading issues in extension
+            const workletCode = `
+                class RecorderProcessor extends AudioWorkletProcessor {
+                    process(inputs, outputs, parameters) {
+                        const input = inputs[0];
+                        if (input && input.length > 0) {
+                            const inputData = input[0];
+                            // Send data to main thread
+                            this.port.postMessage(inputData);
+                        }
+                        return true;
+                    }
+                }
+                registerProcessor('recorder-processor', RecorderProcessor);
+            `;
+
+            const blob = new Blob([workletCode], { type: 'application/javascript' });
+            const workletUrl = URL.createObjectURL(blob);
+
+            await ctx.audioWorklet.addModule(workletUrl);
+            URL.revokeObjectURL(workletUrl);
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    sampleRate: 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    autoGainControl: true,
+                    noiseSuppression: true
+                }
+            });
+
             const source = ctx.createMediaStreamSource(stream);
-            const processor = ctx.createScriptProcessor(4096, 1, 1);
+            const workletNode = new AudioWorkletNode(ctx, 'recorder-processor');
 
-            processor.onaudioprocess = (e) => {
+            workletNode.port.onmessage = (event) => {
                 if (socket.readyState !== WebSocket.OPEN) return;
 
-                const inputData = e.inputBuffer.getChannelData(0);
+                const inputData = event.data; // Float32Array from processor
+
                 // Convert Float32 to Int16 PCM
                 const pcmData = new Int16Array(inputData.length);
                 for (let i = 0; i < inputData.length; i++) {
@@ -234,8 +259,6 @@ function App() {
                 }
 
                 // Base64 Encode
-                // Using a rough manual conversion for speed/compat without extra heavy libs, 
-                // or just standard btoa on string info.
                 let binary = '';
                 const bytes = new Uint8Array(pcmData.buffer);
                 const len = bytes.byteLength;
@@ -254,12 +277,13 @@ function App() {
                 }));
             };
 
-            source.connect(processor);
-            processor.connect(ctx.destination);
-        }).catch(err => {
+            source.connect(workletNode);
+            workletNode.connect(ctx.destination);
+
+        } catch (err: any) {
             console.error("Mic Error:", err);
-            setVoiceStatus("Mic Access Denied");
-        });
+            setVoiceStatus("Mic Access Denied: " + err.message);
+        }
     }
 
     const clearHistory = () => {

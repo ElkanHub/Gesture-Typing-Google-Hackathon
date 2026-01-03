@@ -54,7 +54,11 @@ async function handleAgentAction(action: string, text: string) {
 
             // 2. Scrape All Tabs
             const tabs = await chrome.tabs.query({});
-            const validTabs = tabs.filter(t => t.url && t.url.startsWith('http') && t.id);
+            const validTabs = tabs.filter(t => {
+                if (!t.url || !t.id) return false;
+                if (t.url.startsWith('chrome://') || t.url.startsWith('edge://') || t.url.startsWith('about:') || t.url.startsWith('chrome-extension://')) return false;
+                return t.url.startsWith('http');
+            });
             console.log(`Found ${validTabs.length} valid tabs.`);
 
             const scraps = await Promise.all(validTabs.map(async (tab) => {

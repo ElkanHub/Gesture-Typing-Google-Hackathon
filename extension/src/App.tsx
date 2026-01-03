@@ -126,8 +126,12 @@ function App() {
                     setup: {
                         model: "models/gemini-2.0-flash-exp",
                         generation_config: {
-                            response_modalities: ["AUDIO", "TEXT"], // Request both
+                            response_modalities: ["AUDIO", "TEXT"], // THE KEY: Request both modalities
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
+                        },
+                        // Optional: Enable transcription of YOUR voice (User)
+                        input_audio_transcription: {
+                            enabled: true
                         },
                         system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise." }] }
                     }
@@ -145,37 +149,46 @@ function App() {
                 startMicrophone(socket);
             };
 
+            socket.onerror = (error) => {
+                console.error("Socket Error:", error);
+                setVoiceStatus("Connection Error. Please retry.");
+            };
+
             socket.onmessage = async (event) => {
                 try {
-                    let parseData;
+                    let response;
                     if (event.data instanceof Blob) {
                         const text = await event.data.text();
-                        parseData = JSON.parse(text);
+                        response = JSON.parse(text);
                     } else {
-                        parseData = JSON.parse(event.data);
+                        response = JSON.parse(event.data);
                     }
 
-                    // Handle Audio
-                    const audioB64 = parseData.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                    if (audioB64) {
+                    // 1. Handle Gemini's Voice (Audio Chunks)
+                    if (response.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
+                        const audioB64 = response.serverContent.modelTurn.parts[0].inlineData.data;
                         playPCM(audioB64);
                     }
 
-                    // Handle Text
-                    const textPart = parseData.serverContent?.modelTurn?.parts?.find((p: any) => p.text)?.text;
-                    if (textPart) {
+                    // 2. Handle Gemini's Text (Real-time Transcript)
+                    const liveText = response.serverContent?.modelTurn?.parts?.[0]?.text;
+                    if (liveText) {
                         setMessages(prev => {
                             // Simple streaming logic: Append to last message if agent, else new message
                             const lastMsg = prev[prev.length - 1];
                             if (lastMsg && lastMsg.role === 'agent' && Date.now() - lastMsg.timestamp < 5000) {
-                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + textPart }];
+                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + liveText }];
                             }
-                            return [...prev, { id: `live-${Date.now()}`, role: 'agent', content: textPart, timestamp: Date.now() }];
+                            return [...prev, { id: `live-${Date.now()}`, role: 'agent', content: liveText, timestamp: Date.now() }];
                         });
                     }
 
-                    // Handle User Transcript (if model echoes input, optional)
-                    // ignoring for now to keep it clean
+                    // 3. Handle YOUR Voice (User Transcript)
+                    if (response.serverContent?.inputTranscription) {
+                        const myText = response.serverContent.inputTranscription.text;
+                        // Optional: Show my own voice usage
+                        // console.log("I just said:", myText);
+                    }
 
                 } catch (e) {
                     console.error("Parse Error", e);
@@ -279,9 +292,9 @@ function App() {
                 </header>
 
                 <div className="flex-1 flex flex-col items-center z-10 space-y-4 w-full max-w-full overflow-hidden">
-                    {/* Visualizer Area (Shrunk slightly) */}
-                    <div className="flex-none flex flex-col items-center justify-center pt-8">
-                        <div className={cn("relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500",
+                    {/* Visualizer Area (Strict 30% Height) */}
+                    <div className="flex-none h-[30%] w-full flex flex-col items-center justify-center pt-4">
+                        <div className={cn("relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500",
                             isVoiceConnected ? "bg-white/10 shadow-[0_0_50px_rgba(100,200,255,0.3)]" : "bg-red-500/10")}>
 
                             {/* Orb */}

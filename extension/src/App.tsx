@@ -131,6 +131,13 @@ function App() {
                             response_modalities: ["AUDIO"],
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
+                        realtime_input_config: {
+                            automatic_activity_detection: {
+                                start_of_speech_sensitivity: "REPORT_START_OF_SPEECH_SENSITIVITY_LOW",
+                                end_of_speech_sensitivity: "REPORT_END_OF_SPEECH_SENSITIVITY_LOW",
+                                prefix_padding_ms: 300
+                            }
+                        },
                         input_audio_transcription: {},
                         output_audio_transcription: {},
                         tools: [{ googleSearch: {} }],
@@ -271,6 +278,7 @@ function App() {
 
             const source = ctx.createMediaStreamSource(stream);
             const workletNode = new AudioWorkletNode(ctx, 'recorder-processor');
+            let sustainedVolumeCount = 0;
 
             // Barge-In / VAD Logic
 
@@ -286,14 +294,20 @@ function App() {
                     sumSquares += inputData[i] * inputData[i];
                 }
                 const rms = Math.sqrt(sumSquares / inputData.length);
-                const VOLUME_THRESHOLD = 0.01; // Adjust sensitivity
+                const VOLUME_THRESHOLD = 0.02; // Increased from 0.01 for robustness
+
+                // Debounce: Require 3 consecutive frames of loudness
+                if (rms > VOLUME_THRESHOLD) {
+                    sustainedVolumeCount++;
+                } else {
+                    sustainedVolumeCount = 0;
+                }
 
                 // If user speaks loud enough, cut agent audio
-                if (rms > VOLUME_THRESHOLD) {
+                if (sustainedVolumeCount >= 3) {
                     // console.log("Barge-in detected! Stopping audio.");
-                    // Debounce slightly to avoid self-triggering from echo if cancellation fails, 
-                    // but echoCancellation: true in getUserMedia handles most.
                     stopAudio();
+                    sustainedVolumeCount = 0; // Reset
                 }
                 // ----------------------------
 

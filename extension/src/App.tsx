@@ -131,13 +131,13 @@ function App() {
                             response_modalities: ["AUDIO"],
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
-                        realtime_input_config: {
+                        /* realtime_input_config: {
                             automatic_activity_detection: {
                                 start_of_speech_sensitivity: "REPORT_START_OF_SPEECH_SENSITIVITY_LOW",
                                 end_of_speech_sensitivity: "REPORT_END_OF_SPEECH_SENSITIVITY_LOW",
                                 prefix_padding_ms: 300
                             }
-                        },
+                        }, */
                         input_audio_transcription: {},
                         output_audio_transcription: {},
                         tools: [{ googleSearch: {} }],

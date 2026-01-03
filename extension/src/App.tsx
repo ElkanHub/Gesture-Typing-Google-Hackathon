@@ -124,12 +124,12 @@ function App() {
                 // Setup
                 socket.send(JSON.stringify({
                     setup: {
-                        model: "models/gemini-2.0-flash-exp", // User asked for Flash Native Audio, checking availability
+                        model: "models/gemini-2.0-flash-exp",
                         generation_config: {
-                            response_modalities: ["AUDIO"],
+                            response_modalities: ["AUDIO", "TEXT"], // Request both
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
-                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs." }] }
+                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise." }] }
                     }
                 }));
 
@@ -155,12 +155,30 @@ function App() {
                         parseData = JSON.parse(event.data);
                     }
 
+                    // Handle Audio
                     const audioB64 = parseData.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                     if (audioB64) {
                         playPCM(audioB64);
                     }
+
+                    // Handle Text
+                    const textPart = parseData.serverContent?.modelTurn?.parts?.find((p: any) => p.text)?.text;
+                    if (textPart) {
+                        setMessages(prev => {
+                            // Simple streaming logic: Append to last message if agent, else new message
+                            const lastMsg = prev[prev.length - 1];
+                            if (lastMsg && lastMsg.role === 'agent' && Date.now() - lastMsg.timestamp < 5000) {
+                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + textPart }];
+                            }
+                            return [...prev, { id: `live-${Date.now()}`, role: 'agent', content: textPart, timestamp: Date.now() }];
+                        });
+                    }
+
+                    // Handle User Transcript (if model echoes input, optional)
+                    // ignoring for now to keep it clean
+
                 } catch (e) {
-                    console.error("Audio Parse Error", e);
+                    console.error("Parse Error", e);
                 }
             };
 
@@ -260,35 +278,67 @@ function App() {
                     }} className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20">Back & Stop</button>
                 </header>
 
-                <div className="flex-1 flex flex-col items-center justify-center z-10 space-y-8">
-                    <div className={cn("relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500",
-                        isVoiceConnected ? "bg-white/10 shadow-[0_0_50px_rgba(100,200,255,0.3)]" : "bg-red-500/10")}>
+                <div className="flex-1 flex flex-col items-center z-10 space-y-4 w-full max-w-full overflow-hidden">
+                    {/* Visualizer Area (Shrunk slightly) */}
+                    <div className="flex-none flex flex-col items-center justify-center pt-8">
+                        <div className={cn("relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500",
+                            isVoiceConnected ? "bg-white/10 shadow-[0_0_50px_rgba(100,200,255,0.3)]" : "bg-red-500/10")}>
 
-                        {/* Orb */}
-                        <div className={cn("w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-pulse",
-                            isVoiceConnected ? "scale-110 duration-[2000ms]" : "scale-100 grayscale")} />
+                            {/* Orb */}
+                            <div className={cn("w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-pulse",
+                                isVoiceConnected ? "scale-110 duration-[2000ms]" : "scale-100 grayscale")} />
 
-                        {/* Rings */}
-                        {isVoiceConnected && (
-                            <>
-                                <div className="absolute inset-0 rounded-full border border-blue-400/30 animate-ping [animation-duration:3s]"></div>
-                                <div className="absolute inset-[-10px] rounded-full border border-purple-400/20 animate-ping [animation-duration:2s]"></div>
-                            </>
-                        )}
+                            {/* Rings */}
+                            {isVoiceConnected && (
+                                <>
+                                    <div className="absolute inset-0 rounded-full border border-blue-400/30 animate-ping [animation-duration:3s]"></div>
+                                    <div className="absolute inset-[-10px] rounded-full border border-purple-400/20 animate-ping [animation-duration:2s]"></div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-2 mt-4">
+                            <p className="text-white/70 font-mono text-xs tracking-widest uppercase animate-pulse">
+                                {voiceStatus}
+                            </p>
+
+                            {/* Emergency Stop Button */}
+                            <button
+                                onClick={() => stopAudio()}
+                                className="bg-red-500/20 hover:bg-red-500/40 text-red-200 border border-red-500/50 px-4 py-1 rounded-full text-[10px] font-bold tracking-wider transition-all"
+                            >
+                                STOP AUDIO
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-4">
-                        <p className="text-white/70 font-mono text-sm tracking-widest uppercase animate-pulse">
-                            {voiceStatus}
-                        </p>
-
-                        {/* Emergency Stop Button */}
-                        <button
-                            onClick={() => stopAudio()}
-                            className="bg-red-500/20 hover:bg-red-500/40 text-red-200 border border-red-500/50 px-6 py-2 rounded-full text-sm font-bold tracking-wider transition-all"
-                        >
-                            STOP AUDIO
-                        </button>
+                    {/* Transcript Chat Area */}
+                    <div className="flex-1 w-full bg-black/40 backdrop-blur-sm rounded-t-2xl border-t border-white/10 p-4 overflow-y-auto scroll-smooth mask-image-b">
+                        <div className="space-y-4">
+                            {messages.filter(m => m.timestamp > 0).map((msg) => (
+                                <div key={msg.id} className={cn("flex flex-col gap-1", msg.role === 'user' ? "items-end" : "items-start")}>
+                                    <span className="text-[10px] uppercase tracking-wider text-white/40 ml-1">{msg.role}</span>
+                                    <div className={cn(
+                                        "p-3 rounded-2xl text-sm max-w-[90%] leading-relaxed shadow-lg relative group",
+                                        msg.role === 'user'
+                                            ? "bg-blue-600/80 text-white rounded-br-none"
+                                            : "bg-white/10 text-slate-200 rounded-bl-none border border-white/5"
+                                    )}>
+                                        {msg.content}
+                                        {/* Copy Button for Agent */}
+                                        {msg.role === 'agent' && (
+                                            <button
+                                                onClick={() => copyToClipboard(msg.content, msg.id)}
+                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-black/30 rounded hover:bg-black/50"
+                                            >
+                                                {copiedId === msg.id ? <IconCheck className="w-3 h-3 text-emerald-400" /> : <IconCopy className="w-3 h-3 text-white/70" />}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={bottomRef} className="h-4" />
+                        </div>
                     </div>
                 </div>
             </div>

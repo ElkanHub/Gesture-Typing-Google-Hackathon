@@ -110,6 +110,12 @@ export class GestureProcessor {
     }
 
     private handleAgentGestures(sequence: string) {
+        // Triangle (Climax Feature - Deep Analysis)
+        if (this.isTriangle()) {
+            console.log("AGENT: TRIANGLE (DEEP REASONING)");
+            this.triggerAgent('TRIANGLE');
+            return;
+        }
         // Right Arrow (Summarize)
         if (this.isLineRight(sequence)) {
             console.log("AGENT: SUMMARIZE");
@@ -337,6 +343,40 @@ export class GestureProcessor {
         }
         return matchCount >= 3;
     }
+    private isTriangle(): boolean {
+        // A triangle is a closed loop of 3 points (roughly)
+        // For keyboard gestures, we look for:
+        // 1. Sufficient length (at least 5 points)
+        // 2. Start and End points are close (closed loop)
+        // 3. Not a straight line (implies some height/width)
+
+        if (this.trajectory.length < 5) return false;
+
+        const start = this.trajectory[0];
+        const end = this.trajectory[this.trajectory.length - 1];
+
+        // Distance between start and end
+        const dist = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+
+        // Check if closed (threshold in pixels, say 100px or key units)
+        // Assuming key coordinates are roughly 100px apart or similar grid. 
+        // Let's use a heuristic relative to bounding box.
+
+        const xs = this.trajectory.map(p => p.x);
+        const ys = this.trajectory.map(p => p.y);
+        const width = Math.max(...xs) - Math.min(...xs);
+        const height = Math.max(...ys) - Math.min(...ys);
+
+        // It must have "volume"
+        if (width < 50 || height < 50) return false;
+
+        // Start/End proximity (normalized by size)
+        const loopThreshold = Math.max(width, height) * 0.4; // 40% of max dimension
+        if (dist > loopThreshold) return false;
+
+        return true;
+    }
+
     private async triggerAgent(action: string) {
         // Implementation for agent trigger
         try {

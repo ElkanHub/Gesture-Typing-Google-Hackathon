@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { playPCM } from './lib/audio-utils';
 
 // --- Utils ---
 function cn(...inputs: ClassValue[]) {
@@ -18,27 +19,7 @@ type Message = {
 
 // --- Components ---
 
-function IconBot({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M12 8V4H8" />
-            <rect width="16" height="12" x="4" y="8" rx="2" />
-            <path d="M2 14h2" />
-            <path d="M20 14h2" />
-            <path d="M15 13v2" />
-            <path d="M9 13v2" />
-        </svg>
-    )
-}
 
-function IconUser({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-        </svg>
-    )
-}
 
 function IconCopy({ className }: { className?: string }) {
     return (
@@ -71,9 +52,12 @@ function IconCheck({ className }: { className?: string }) {
 
 function App() {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [mode, setMode] = useState<'AGENT' | 'TYPING'>('AGENT');
+    const [mode, setMode] = useState<'AGENT' | 'TYPING' | 'VOICE_CHAT'>('AGENT');
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+    const [voiceStatus, setVoiceStatus] = useState("Connecting...");
+    const socketRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
         // Scroll to bottom on new message
@@ -96,8 +80,147 @@ function App() {
             if (message.type === 'MODE_CHANGED') {
                 setMode(message.mode);
             }
+            if (message.type === 'START_VOICE_CHAT') {
+                setMode('VOICE_CHAT');
+                startVoiceSession(message.plan);
+            }
         });
+
+        return () => {
+            if (socketRef.current) socketRef.current.close();
+        }
     }, []);
+
+    const startVoiceSession = async (plan: string) => {
+        setVoiceStatus("Fetching Key...");
+        try {
+            // Get Key
+            const kRes = await fetch('http://localhost:3000/api/key');
+            const kData = await kRes.json();
+            const API_KEY = kData.key;
+
+            if (!API_KEY) throw new Error("No API Key");
+
+            setVoiceStatus("Connecting to Gemini Live...");
+
+            // Connect
+            const url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+            const socket = new WebSocket(`${url}?key=${API_KEY}`);
+            socketRef.current = socket;
+
+            socket.onopen = () => {
+                setVoiceStatus("Connected. Speaking...");
+                setIsVoiceConnected(true);
+
+                // Setup
+                socket.send(JSON.stringify({
+                    setup: {
+                        model: "models/gemini-2.0-flash-exp", // User asked for Flash Native Audio, checking availability
+                        generation_config: {
+                            response_modalities: ["AUDIO"],
+                            speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
+                        },
+                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs." }] }
+                    }
+                }));
+
+                // Initial Plan INJECTION
+                socket.send(JSON.stringify({
+                    client_content: {
+                        turns: [{ role: "user", parts: [{ text: `Here is the plan from my Chief of Staff based on my open tabs: ${plan}` }] }],
+                        turn_complete: true
+                    }
+                }));
+
+                // Start Mic
+                startMicrophone(socket);
+            };
+
+            socket.onmessage = async (event) => {
+                try {
+                    let parseData;
+                    if (event.data instanceof Blob) {
+                        const text = await event.data.text();
+                        parseData = JSON.parse(text);
+                    } else {
+                        parseData = JSON.parse(event.data);
+                    }
+
+                    const audioB64 = parseData.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+                    if (audioB64) {
+                        playPCM(audioB64);
+                    }
+                } catch (e) {
+                    console.error("Audio Parse Error", e);
+                }
+            };
+
+            socket.onclose = () => {
+                setIsVoiceConnected(false);
+                setVoiceStatus("Disconnected");
+            }
+
+        } catch (e: any) {
+            console.error("Voice Error", e);
+            setVoiceStatus("Error: " + e.message);
+        }
+    };
+
+    const startMicrophone = (socket: WebSocket) => {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContext({ sampleRate: 16000 });
+
+        navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+                echoCancellation: true,
+                autoGainControl: true,
+                noiseSuppression: true
+            }
+        }).then(stream => {
+            const source = ctx.createMediaStreamSource(stream);
+            const processor = ctx.createScriptProcessor(4096, 1, 1);
+
+            processor.onaudioprocess = (e) => {
+                if (socket.readyState !== WebSocket.OPEN) return;
+
+                const inputData = e.inputBuffer.getChannelData(0);
+                // Convert Float32 to Int16 PCM
+                const pcmData = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    const s = Math.max(-1, Math.min(1, inputData[i]));
+                    pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+
+                // Base64 Encode
+                // Using a rough manual conversion for speed/compat without extra heavy libs, 
+                // or just standard btoa on string info.
+                let binary = '';
+                const bytes = new Uint8Array(pcmData.buffer);
+                const len = bytes.byteLength;
+                for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const base64 = btoa(binary);
+
+                socket.send(JSON.stringify({
+                    realtime_input: {
+                        media_chunks: [{
+                            mime_type: "audio/pcm",
+                            data: base64
+                        }]
+                    }
+                }));
+            };
+
+            source.connect(processor);
+            processor.connect(ctx.destination);
+        }).catch(err => {
+            console.error("Mic Error:", err);
+            setVoiceStatus("Mic Access Denied");
+        });
+    }
 
     const clearHistory = () => {
         setMessages([]);
@@ -109,6 +232,50 @@ function App() {
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
     };
+
+    if (mode === 'VOICE_CHAT') {
+        return (
+            <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white overflow-hidden relative">
+                <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+                    <div className="w-[300px] h-[300px] bg-blue-500 rounded-full blur-[100px] animate-pulse"></div>
+                </div>
+
+                <header className="p-4 flex items-center justify-between z-10 backdrop-blur-md bg-black/20">
+                    <h1 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Agent Live</h1>
+                    <button onClick={() => setMode('AGENT')} className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20">Back</button>
+                </header>
+
+                <div className="flex-1 flex flex-col items-center justify-center z-10 space-y-8">
+                    <div className={cn("relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500",
+                        isVoiceConnected ? "bg-white/10 shadow-[0_0_50px_rgba(100,200,255,0.3)]" : "bg-red-500/10")}>
+
+                        {/* Orb */}
+                        <div className={cn("w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-pulse",
+                            isVoiceConnected ? "scale-110 duration-[2000ms]" : "scale-100 grayscale")} />
+
+                        {/* Rings */}
+                        {isVoiceConnected && (
+                            <>
+                                <div className="absolute inset-0 rounded-full border border-blue-400/30 animate-ping [animation-duration:3s]"></div>
+                                <div className="absolute inset-[-10px] rounded-full border border-purple-400/20 animate-ping [animation-duration:2s]"></div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-bold">{isVoiceConnected ? "Listening..." : "Disconnected"}</h2>
+                        <p className="text-sm text-white/50">{voiceStatus}</p>
+                    </div>
+                </div>
+
+                <div className="p-6 z-10">
+                    <div className="text-xs text-center text-white/30">
+                        Microphone is active. Speak clearly.
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex flex-col h-screen bg-black/50 font-sans selection:bg-indigo-100 overflow-hidden">

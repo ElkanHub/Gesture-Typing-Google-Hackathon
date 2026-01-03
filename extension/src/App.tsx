@@ -320,9 +320,9 @@ function App() {
                     sumSquares += inputData[i] * inputData[i];
                 }
                 const rms = Math.sqrt(sumSquares / inputData.length);
-                const VOLUME_THRESHOLD = 0.02; // Increased from 0.01 for robustness
+                const VOLUME_THRESHOLD = 0.05; // Increased to 0.05 (User request: "too sensitive")
 
-                // Debounce: Require 3 consecutive frames of loudness
+                // Debounce: Require sustained loudness to avoid clicks triggering barge-in
                 if (rms > VOLUME_THRESHOLD) {
                     sustainedVolumeCount++;
                 } else {
@@ -330,7 +330,8 @@ function App() {
                 }
 
                 // If user speaks loud enough, cut agent audio
-                if (sustainedVolumeCount >= 3) {
+                // Increased to 10 frames (~100-200ms) to ensure it's actual speech
+                if (sustainedVolumeCount >= 10) {
                     // console.log("Barge-in detected! Stopping audio.");
                     stopAudio();
                     sustainedVolumeCount = 0; // Reset

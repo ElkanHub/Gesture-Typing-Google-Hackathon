@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { playPCM } from './lib/audio-utils';
+import { playPCM, stopAudio } from "./lib/audio-utils";
 
 // --- Utils ---
 function cn(...inputs: ClassValue[]) {
@@ -242,7 +242,13 @@ function App() {
 
                 <header className="p-4 flex items-center justify-between z-10 backdrop-blur-md bg-black/20">
                     <h1 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Agent Live</h1>
-                    <button onClick={() => setMode('AGENT')} className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20">Back</button>
+                    <button onClick={() => {
+                        stopAudio();
+                        setMode('AGENT');
+                        // Force close socket if open
+                        // (Ideally we track socket ref, but effect cleanup handles it too or we rely on re-render)
+                        window.location.reload(); // Simple brute force to ensure full audio context cleanup for prototype
+                    }} className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20">Back & Stop</button>
                 </header>
 
                 <div className="flex-1 flex flex-col items-center justify-center z-10 space-y-8">
@@ -262,20 +268,25 @@ function App() {
                         )}
                     </div>
 
-                    <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-bold">{isVoiceConnected ? "Listening..." : "Disconnected"}</h2>
-                        <p className="text-sm text-white/50">{voiceStatus}</p>
-                    </div>
-                </div>
+                    <div className="flex flex-col items-center gap-4">
+                        <p className="text-white/70 font-mono text-sm tracking-widest uppercase animate-pulse">
+                            {voiceStatus}
+                        </p>
 
-                <div className="p-6 z-10">
-                    <div className="text-xs text-center text-white/30">
-                        Microphone is active. Speak clearly.
+                        {/* Emergency Stop Button */}
+                        <button
+                            onClick={() => stopAudio()}
+                            className="bg-red-500/20 hover:bg-red-500/40 text-red-200 border border-red-500/50 px-6 py-2 rounded-full text-sm font-bold tracking-wider transition-all"
+                        >
+                            STOP AUDIO
+                        </button>
                     </div>
                 </div>
             </div>
-        )
+        );
     }
+
+
 
     return (
         <div className="flex flex-col h-screen bg-black/50 font-sans selection:bg-indigo-100 overflow-hidden">

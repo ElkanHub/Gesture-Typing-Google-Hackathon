@@ -12,10 +12,24 @@ export function initAudioContext() {
 // Queue to prevent overlapping audio (The "Scream" fix)
 let isPlaying = false;
 let audioQueue: string[] = [];
+let currentSource: AudioBufferSourceNode | null = null;
 
 export async function playPCM(base64Data: string) {
     audioQueue.push(base64Data);
     processQueue();
+}
+
+export function stopAudio() {
+    isPlaying = false;
+    audioQueue = []; // Clear queue
+    if (currentSource) {
+        try {
+            currentSource.stop();
+        } catch (e) {
+            // ignore if already stopped
+        }
+        currentSource = null;
+    }
 }
 
 async function processQueue() {
@@ -30,10 +44,13 @@ async function processQueue() {
         }
     } catch (e) {
         console.error("Audio Playback Error", e);
+        isPlaying = false; // ensure recovers
     } finally {
-        isPlaying = false;
-        // Process next chunk immediately
-        if (audioQueue.length > 0) processQueue();
+        // Only continue if not stopped
+        if (isPlaying) {
+            isPlaying = false;
+            if (audioQueue.length > 0) processQueue();
+        }
     }
 }
 
@@ -59,13 +76,13 @@ function playChunk(base64Data: string): Promise<void> {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.connect(ctx.destination);
+        currentSource = source; // Track current source
 
         source.onended = () => {
+            currentSource = null;
             resolve();
         };
 
         source.start();
-        // Fallback safety timeout if onended doesn't fire (rare but possible w/ disconnected devices)
-        setTimeout(() => resolve(), (buffer.duration * 1000) + 100);
     });
 }

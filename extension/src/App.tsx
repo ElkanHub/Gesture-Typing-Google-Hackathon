@@ -53,6 +53,7 @@ function IconCheck({ className }: { className?: string }) {
 function App() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [mode, setMode] = useState<'AGENT' | 'TYPING' | 'VOICE_CHAT'>('AGENT');
+    const modeRef = useRef(mode); // Track mode for event listeners
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const [isVoiceConnected, setIsVoiceConnected] = useState(false);
@@ -60,6 +61,11 @@ function App() {
     const [isSearching, setIsSearching] = useState(false);
     const [searchMetadata, setSearchMetadata] = useState<any>(null);
     const socketRef = useRef<WebSocket | null>(null);
+
+    // Keep Ref synced
+    useEffect(() => {
+        modeRef.current = mode;
+    }, [mode]);
 
     useEffect(() => {
         // Scroll to bottom on new message
@@ -80,6 +86,11 @@ function App() {
                 setMessages(message.messages);
             }
             if (message.type === 'MODE_CHANGED') {
+                // BUG FIX: Don't switch mode if we are in a call!
+                if (modeRef.current === 'VOICE_CHAT') {
+                    console.log("Ignoring background mode switch (In Call)");
+                    return;
+                }
                 setMode(message.mode);
             }
             if (message.type === 'START_VOICE_CHAT') {
@@ -87,6 +98,9 @@ function App() {
                 startVoiceSession(message.plan);
             }
         });
+
+        // Cleanup not needed for listener (React handles it mostly, but good practice... 
+        // Chrome runtime listeners are global, so strict mode might duplicate, but logic handles it.)
 
         return () => {
             if (socketRef.current) socketRef.current.close();

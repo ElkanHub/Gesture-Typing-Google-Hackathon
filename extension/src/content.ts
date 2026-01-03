@@ -265,6 +265,45 @@ function updateMode() {
 }
 
 
+// --- AUDIO PLAYBACK ---
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'PLAY_AUDIO') {
+        console.log("Received Audio Data, Playing...");
+        playNativeAudio(message.audio);
+    }
+});
+
+function playNativeAudio(base64: string) {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioContext({ sampleRate: 24000 }); // Gemini 2.0 uses 24kHz
+
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const int16 = new Int16Array(bytes.buffer);
+        const float32 = new Float32Array(int16.length);
+
+        for (let i = 0; i < int16.length; i++) {
+            float32[i] = int16[i] / 32768.0; // Normalize PCM
+        }
+
+        const buffer = audioCtx.createBuffer(1, float32.length, 24000);
+        buffer.getChannelData(0).set(float32);
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start();
+    } catch (e) {
+        console.error("Audio Playback Failed:", e);
+    }
+}
+
 // Initial check
 try {
     updateMode();

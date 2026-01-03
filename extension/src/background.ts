@@ -37,11 +37,11 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
             chrome.runtime.sendMessage({ type: 'CHAT_UPDATE', messages: newHistory }).catch(() => { });
         });
 
-        handleAgentAction(message.action, message.text);
+        handleAgentAction(message.action, message.text, sender.tab?.id);
     }
 });
 
-async function handleAgentAction(action: string, text: string) {
+async function handleAgentAction(action: string, text: string, tabId?: number) {
     // --- TRIANGLE GESTURE (CLIMAX FEATURE) ---
     if (action === 'TRIANGLE') {
         console.log("Handling TRIANGLE: Deep Scraping...");
@@ -152,6 +152,26 @@ async function handleAgentAction(action: string, text: string) {
             chrome.storage.session.set({ chatHistory: updatedHistory });
             chrome.runtime.sendMessage({ type: 'CHAT_UPDATE', messages: updatedHistory }).catch(() => { });
         });
+
+        // --- AUDIO FEEDBACK ---
+        if (tabId) {
+            console.log("Generating Audio via Gemini...");
+            const style = action === 'READ' ? "Read this carefully like a professional narrator" : "Summarize this in a helpful, concise assistant voice";
+
+            fetch('http://localhost:3000/api/read-aloud', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: responseText, style })
+            })
+                .then(res => res.json())
+                .then(ttsData => {
+                    if (ttsData.audio) {
+                        console.log("Sending Audio to Tab", tabId);
+                        chrome.tabs.sendMessage(tabId, { type: 'PLAY_AUDIO', audio: ttsData.audio }).catch(err => console.warn("Could not play audio:", err));
+                    }
+                })
+                .catch(err => console.error("TTS Gen Failed:", err));
+        }
 
     } catch (e) {
         console.error("Agent API Call Failed", e);

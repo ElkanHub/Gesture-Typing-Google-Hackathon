@@ -265,7 +265,58 @@ function updateMode() {
 }
 
 
-// --- AUDIO PLAYBACK ---
+// --- AUDIO PLAYBACK UI ---
+const audioPlayer = document.createElement('div');
+audioPlayer.id = 'pg-audio-player';
+audioPlayer.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+        <span id="pg-audio-status" style="font-size:14px; font-weight:600; color:#374151;">Playing...</span>
+        <div style="display:flex; gap:8px;">
+            <button id="pg-pause-btn" class="pg-control-btn">Pause</button>
+            <button id="pg-stop-btn" class="pg-control-btn">Stop</button>
+        </div>
+    </div>
+`;
+// Styles for player
+const playerStyle = `
+    #pg-audio-player {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        background: white;
+        padding: 12px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        display: none;
+        z-index: 1000001;
+        font-family: system-ui, sans-serif;
+        border: 1px solid #e5e7eb;
+        animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pg-control-btn {
+        background: #f3f4f6;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: #1f2937;
+    }
+    .pg-control-btn:hover { background: #e5e7eb; }
+    @keyframes slideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+`;
+style.textContent += playerStyle;
+document.body.appendChild(audioPlayer);
+
+let currentAudioCtx: AudioContext | null = null;
+let currentSource: AudioBufferSourceNode | null = null;
+let isPaused = false;
+
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PLAY_AUDIO') {
         console.log("Received Audio Data, Playing...");
@@ -274,9 +325,12 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 function playNativeAudio(base64: string) {
+    // Stop existing
+    stopAudio();
+
     try {
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioContext({ sampleRate: 24000 }); // Gemini 2.0 uses 24kHz
+        currentAudioCtx = new AudioContext({ sampleRate: 24000 }); // Gemini 2.0 uses 24kHz
 
         const binaryString = atob(base64);
         const len = binaryString.length;
@@ -289,20 +343,68 @@ function playNativeAudio(base64: string) {
         const float32 = new Float32Array(int16.length);
 
         for (let i = 0; i < int16.length; i++) {
-            float32[i] = int16[i] / 32768.0; // Normalize PCM
+            float32[i] = int16[i] / 32768.0;
         }
 
-        const buffer = audioCtx.createBuffer(1, float32.length, 24000);
+        const buffer = currentAudioCtx.createBuffer(1, float32.length, 24000);
         buffer.getChannelData(0).set(float32);
 
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtx.destination);
-        source.start();
+        currentSource = currentAudioCtx.createBufferSource();
+        currentSource.buffer = buffer;
+        currentSource.connect(currentAudioCtx.destination);
+        currentSource.onended = () => {
+            // Hide player when done naturally
+            audioPlayer.style.display = 'none';
+        };
+        currentSource.start();
+
+        // Show UI
+        audioPlayer.style.display = 'block';
+        updatePlayerUI('Playing');
+        isPaused = false;
+
     } catch (e) {
         console.error("Audio Playback Failed:", e);
     }
 }
+
+function stopAudio() {
+    if (currentSource) {
+        try { currentSource.stop(); } catch (e) { }
+        currentSource = null;
+    }
+    if (currentAudioCtx) {
+        currentAudioCtx.close();
+        currentAudioCtx = null;
+    }
+    audioPlayer.style.display = 'none';
+}
+
+function togglePause() {
+    if (!currentAudioCtx) return;
+
+    if (currentAudioCtx.state === 'running') {
+        currentAudioCtx.suspend();
+        isPaused = true;
+        updatePlayerUI('Paused');
+    } else if (currentAudioCtx.state === 'suspended') {
+        currentAudioCtx.resume();
+        isPaused = false;
+        updatePlayerUI('Playing');
+    }
+}
+
+function updatePlayerUI(status: string) {
+    const statusEl = document.getElementById('pg-audio-status');
+    const pauseBtn = document.getElementById('pg-pause-btn');
+    if (statusEl) statusEl.textContent = status + "...";
+    if (pauseBtn) pauseBtn.textContent = status === 'Playing' ? 'Pause' : 'Resume';
+}
+
+// Bind Controls
+document.getElementById('pg-pause-btn')?.addEventListener('click', togglePause);
+document.getElementById('pg-stop-btn')?.addEventListener('click', stopAudio);
+
 
 // Initial check
 try {

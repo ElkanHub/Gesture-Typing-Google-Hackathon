@@ -383,10 +383,27 @@ export class GestureProcessor {
             chrome.runtime.sendMessage({
                 type: 'AGENT_ACTION',
                 action,
-                text: document.body.innerText.substring(0, 5000)
+                text: this.getMainContent()
             });
         } catch (e) {
             console.error("Agent Trigger Failed", e);
         }
+    }
+
+    private getMainContent(): string {
+        // Preference: <article> -> <main> -> [role="main"] -> Largest block
+        const selectors = ['article', 'main', '[role="main"]'];
+        for (const sel of selectors) {
+            const el = document.querySelector(sel) as HTMLElement;
+            if (el && el.innerText.length > 500) { // arbitrary quality threshold
+                console.log(`[Gesture] Found main content via ${sel}`);
+                return el.innerText.substring(0, 8000); // Increased limit for main content
+            }
+        }
+
+        // Fallback: Use readability-like heuristic (biggest text block)
+        // Simple version: body text but maybe exclude nav/footer if possible?
+        // For now, let's just grab body but cleaner.
+        return document.body.innerText.substring(0, 5000);
     }
 }

@@ -128,9 +128,11 @@ function App() {
                     setup: {
                         model: "models/gemini-2.0-flash-exp",
                         generation_config: {
-                            response_modalities: ["AUDIO", "TEXT"],
+                            response_modalities: ["AUDIO"],
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
+                        input_audio_transcription: {},
+                        output_audio_transcription: {},
                         tools: [{ googleSearch: {} }],
                         system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise. If you don't know something, such as current news or sports scores, use your search tool." }] }
                     }
@@ -189,36 +191,48 @@ function App() {
                             // We will render this in the UI
                         }
                     } else if (isSearching) {
-                        // If we were searching but got a response without metadata (yet), we might still be streaming
-                        // logic dependent on how we want to toggle "Searching..." visual
+                        // Still searching...
                     }
 
-                    // Detect if model is using tool (optional rudimentary check to show "Searching...")
-                    // Note: Ideally we look for functionCall, but with googleSearch tool, often we just get the groundingMetadata in the turn.
+                    // 2. Handle Interruption (Server VAD)
+                    if (response.serverContent?.interrupted) {
+                        console.log("Server detected interruption (VAD). Stopping audio.");
+                        stopAudio();
+                    }
 
-                    // 2. Handle Gemini's Voice (Audio Chunks)
+                    // 3. Handle Gemini's Voice (Audio Chunks)
                     if (response.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
                         const audioB64 = response.serverContent.modelTurn.parts[0].inlineData.data;
                         playPCM(audioB64);
                     }
 
-                    // 3. Handle Gemini's Text (Real-time Transcript)
-                    const liveText = response.serverContent?.modelTurn?.parts?.[0]?.text;
-                    if (liveText) {
+                    // 4. Handle Gemini's Text (Output Transcription)
+                    // With response_modalities=["AUDIO"], text comes in outputTranscription, NOT modelTurn.parts[0].text
+                    const outputTranscript = response.serverContent?.outputTranscription?.text;
+                    const liveText = response.serverContent?.modelTurn?.parts?.[0]?.text; // Fallback
+                    const textContent = outputTranscript || liveText;
+
+                    if (textContent) {
                         setMessages(prev => {
-                            // Simple streaming logic: Append to last message if agent, else new message
                             const lastMsg = prev[prev.length - 1];
                             if (lastMsg && lastMsg.role === 'agent' && Date.now() - lastMsg.timestamp < 5000) {
-                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + liveText }];
+                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + textContent }];
                             }
-                            return [...prev, { id: `live-${Date.now()}`, role: 'agent', content: liveText, timestamp: Date.now() }];
+                            return [...prev, { id: `live-${Date.now()}`, role: 'agent', content: textContent, timestamp: Date.now() }];
                         });
                     }
 
-                    // 4. Handle YOUR Voice (User Transcript)
-                    if (response.serverContent?.inputTranscription) {
-                        // Optional: Show my own voice usage
-                        // console.log("I just said:", myText);
+                    // 5. Handle YOUR Voice (Input Transcript)
+                    const inputTranscript = response.serverContent?.inputTranscription?.text;
+                    if (inputTranscript) {
+                        setMessages(prev => {
+                            const lastMsg = prev[prev.length - 1];
+                            // Append if recent user message, else new bubble
+                            if (lastMsg && lastMsg.role === 'user' && Date.now() - lastMsg.timestamp < 3000) {
+                                return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + inputTranscript }];
+                            }
+                            return [...prev, { id: `user-${Date.now()}`, role: 'user', content: inputTranscript, timestamp: Date.now() }];
+                        });
                     }
 
                 } catch (e) {

@@ -32,7 +32,7 @@ export const analyzeTrajectory = (path: Point[]) => {
     const durations = grouped.map(g => g.endTime - g.startTime);
     const avgDuration = durations.reduce((a, b) => a + b, 0) / (durations.length || 1);
 
-    const dwellAnchors = grouped.filter((g, i) => {
+    const dwellAnchors = grouped.filter((_, i) => {
         const duration = durations[i];
         return duration > (avgDuration * 1.3);
     }).map(g => g.key);

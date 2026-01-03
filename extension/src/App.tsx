@@ -57,6 +57,8 @@ function App() {
     const bottomRef = useRef<HTMLDivElement>(null);
     const [isVoiceConnected, setIsVoiceConnected] = useState(false);
     const [voiceStatus, setVoiceStatus] = useState("Connecting...");
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchMetadata, setSearchMetadata] = useState<any>(null);
     const socketRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -126,12 +128,11 @@ function App() {
                     setup: {
                         model: "models/gemini-2.0-flash-exp",
                         generation_config: {
-                            response_modalities: ["AUDIO"], // FORCE AUDIO ONLY: Combining TEXT is causing connection hangs.
+                            response_modalities: ["AUDIO", "TEXT"],
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
-                        // Transcript disabled for stability
-                        // input_audio_transcription: { enabled: true },
-                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise." }] }
+                        tools: [{ googleSearch: {} }],
+                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise. If you don't know something, such as current news or sports scores, use your search tool." }] }
                     }
                 }));
 
@@ -145,6 +146,20 @@ function App() {
 
                 // Start Mic
                 startMicrophone(socket);
+
+                // Heartbeat (Keep-Alive)
+                const heartbeatInterval = setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            client_content: {
+                                turns: [],
+                                turn_complete: false
+                            }
+                        }));
+                    }
+                }, 15000);
+
+                socket.addEventListener('close', () => clearInterval(heartbeatInterval));
             };
 
             socket.onerror = (error) => {
@@ -162,13 +177,32 @@ function App() {
                         response = JSON.parse(event.data);
                     }
 
-                    // 1. Handle Gemini's Voice (Audio Chunks)
+                    // 1. Handle Grounding (Search)
+                    const grounding = response.serverContent?.modelTurn?.groundingMetadata;
+                    if (grounding) {
+                        console.log("Grounding Metadata:", grounding);
+                        setIsSearching(false); // Result received
+                        setSearchMetadata(grounding);
+
+                        // Handle Search Entry Point (Google Button)
+                        if (grounding.searchEntryPoint?.renderedContent) {
+                            // We will render this in the UI
+                        }
+                    } else if (isSearching) {
+                        // If we were searching but got a response without metadata (yet), we might still be streaming
+                        // logic dependent on how we want to toggle "Searching..." visual
+                    }
+
+                    // Detect if model is using tool (optional rudimentary check to show "Searching...")
+                    // Note: Ideally we look for functionCall, but with googleSearch tool, often we just get the groundingMetadata in the turn.
+
+                    // 2. Handle Gemini's Voice (Audio Chunks)
                     if (response.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
                         const audioB64 = response.serverContent.modelTurn.parts[0].inlineData.data;
                         playPCM(audioB64);
                     }
 
-                    // 2. Handle Gemini's Text (Real-time Transcript)
+                    // 3. Handle Gemini's Text (Real-time Transcript)
                     const liveText = response.serverContent?.modelTurn?.parts?.[0]?.text;
                     if (liveText) {
                         setMessages(prev => {
@@ -181,9 +215,8 @@ function App() {
                         });
                     }
 
-                    // 3. Handle YOUR Voice (User Transcript)
+                    // 4. Handle YOUR Voice (User Transcript)
                     if (response.serverContent?.inputTranscription) {
-                        const myText = response.serverContent.inputTranscription.text;
                         // Optional: Show my own voice usage
                         // console.log("I just said:", myText);
                     }
@@ -225,10 +258,30 @@ function App() {
             const source = ctx.createMediaStreamSource(stream);
             const workletNode = new AudioWorkletNode(ctx, 'recorder-processor');
 
+            // Barge-In / VAD Logic
+
             workletNode.port.onmessage = (event) => {
                 if (socket.readyState !== WebSocket.OPEN) return;
 
                 const inputData = event.data; // Float32Array from processor
+
+                // --- VAD (Barge-In) Check ---
+                // Calculate RMS (Root Mean Square) for volume
+                let sumSquares = 0;
+                for (let i = 0; i < inputData.length; i++) {
+                    sumSquares += inputData[i] * inputData[i];
+                }
+                const rms = Math.sqrt(sumSquares / inputData.length);
+                const VOLUME_THRESHOLD = 0.01; // Adjust sensitivity
+
+                // If user speaks loud enough, cut agent audio
+                if (rms > VOLUME_THRESHOLD) {
+                    // console.log("Barge-in detected! Stopping audio.");
+                    // Debounce slightly to avoid self-triggering from echo if cancellation fails, 
+                    // but echoCancellation: true in getUserMedia handles most.
+                    stopAudio();
+                }
+                // ----------------------------
 
                 // Convert Float32 to Int16 PCM
                 const pcmData = new Int16Array(inputData.length);
@@ -327,6 +380,22 @@ function App() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Grounding & Search Indicator */}
+                    {(searchMetadata || isSearching) && (
+                        <div className="w-full px-4 mb-2 flex items-center justify-center gap-2">
+                            {isSearching ? (
+                                <span className="text-xs text-blue-300 animate-pulse">Searching the web...</span>
+                            ) : (
+                                searchMetadata?.searchEntryPoint?.renderedContent && (
+                                    <div
+                                        className="bg-white/10 rounded-full px-3 py-1 scale-90 origin-center"
+                                        dangerouslySetInnerHTML={{ __html: searchMetadata.searchEntryPoint.renderedContent }}
+                                    />
+                                )
+                            )}
+                        </div>
+                    )}
 
                     {/* Transcript Chat Area */}
                     <div className="flex-1 w-full bg-black/40 backdrop-blur-sm rounded-t-2xl border-t border-white/10 p-4 overflow-y-auto scroll-smooth mask-image-b">

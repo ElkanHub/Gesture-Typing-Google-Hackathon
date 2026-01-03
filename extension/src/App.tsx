@@ -126,13 +126,11 @@ function App() {
                     setup: {
                         model: "models/gemini-2.0-flash-exp",
                         generation_config: {
-                            response_modalities: ["AUDIO", "TEXT"], // THE KEY: Request both modalities
+                            response_modalities: ["AUDIO"], // FORCE AUDIO ONLY: Combining TEXT is causing connection hangs.
                             speech_config: { voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } } }
                         },
-                        // Optional: Enable transcription of YOUR voice (User)
-                        input_audio_transcription: {
-                            enabled: true
-                        },
+                        // Transcript disabled for stability
+                        // input_audio_transcription: { enabled: true },
                         system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise." }] }
                     }
                 }));
@@ -211,27 +209,8 @@ function App() {
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
             const ctx = new AudioContext({ sampleRate: 16000 });
 
-            // Inline AudioWorklet Processor code to avoid file loading issues in extension
-            const workletCode = `
-                class RecorderProcessor extends AudioWorkletProcessor {
-                    process(inputs, outputs, parameters) {
-                        const input = inputs[0];
-                        if (input && input.length > 0) {
-                            const inputData = input[0];
-                            // Send data to main thread
-                            this.port.postMessage(inputData);
-                        }
-                        return true;
-                    }
-                }
-                registerProcessor('recorder-processor', RecorderProcessor);
-            `;
-
-            const blob = new Blob([workletCode], { type: 'application/javascript' });
-            const workletUrl = URL.createObjectURL(blob);
-
-            await ctx.audioWorklet.addModule(workletUrl);
-            URL.revokeObjectURL(workletUrl);
+            // Load processor from external file (fixes CSP/Extension issues)
+            await ctx.audioWorklet.addModule(chrome.runtime.getURL('recorder-processor.js'));
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {

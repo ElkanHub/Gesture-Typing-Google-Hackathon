@@ -79,31 +79,42 @@ async function handleAgentAction(action: string, text: string) {
             const cleanScraps = scraps.filter(s => s !== null);
             console.log("Scraped Data:", cleanScraps);
 
-            // 3. Send to Gemini 3 Pro (Server)
-            const response = await fetch('http://localhost:3000/api/synthesize', {
+            // 3. Skip Synthesis - Send Raw Tabs Directly
+            /* const response = await fetch('http://localhost:3000/api/synthesize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tabContents: cleanScraps })
             });
 
             const data = await response.json();
-            const plan = data.plan;
+            const plan = data.plan; */
 
-            // 4. Update UI with Plan
+            // 4. Update UI with Notification
             notifySidePanel([
                 {
-                    id: `plan-${Date.now()}`,
+                    id: `sys-${Date.now()}`,
                     role: 'agent',
-                    content: `## Strategic Analysis\n${plan}\n\nThinking Process:\n${data.thoughts || 'No thoughts.'}`,
+                    content: `I've analyzed ${cleanScraps.length} tabs. Starting voice session with full context...`,
                     timestamp: Date.now()
                 }
             ]);
 
-            // 5. Trigger Voice Mode in Side Panel
-            chrome.runtime.sendMessage({
-                type: 'START_VOICE_CHAT',
-                plan: plan
-            }).catch(() => { });
+            // 5. Trigger Voice Mode (Robust: Storage + Message)
+            const sessionData = {
+                active: true,
+                tabs: cleanScraps,
+                timestamp: Date.now()
+            };
+
+            chrome.storage.session.set({ pendingVoiceSession: sessionData }, () => {
+                // Try sending message for instant switch if UI is open
+                chrome.runtime.sendMessage({
+                    type: 'START_VOICE_CHAT',
+                    tabs: cleanScraps
+                }).catch(() => {
+                    console.log("UI not ready, expecting storage pickup.");
+                });
+            });
 
         } catch (e: any) {
             console.error("Triangle Action Failed", e);

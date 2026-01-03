@@ -73,10 +73,20 @@ function App() {
     }, [messages]);
 
     useEffect(() => {
-        // 1. Load Initial History
-        chrome.storage.session.get(['chatHistory'], (result) => {
+        // 1. Load Initial History and PENDING VOICE SESSION
+        chrome.storage.session.get(['chatHistory', 'pendingVoiceSession'], (result) => {
             if (result.chatHistory) {
                 setMessages(result.chatHistory as Message[]);
+            }
+
+            // Resume Voice Session if Pending (Robust Handoff)
+            const pending = result.pendingVoiceSession as { active: boolean; tabs: any[]; timestamp: number } | undefined;
+            if (pending && pending.active && (Date.now() - pending.timestamp < 10000)) { // 10s expiry
+                console.log("Resuming pending voice session...");
+                setMode('VOICE_CHAT');
+                startVoiceSession(pending.tabs);
+                // Clear it so we don't loop
+                chrome.storage.session.remove('pendingVoiceSession');
             }
         });
 
@@ -95,7 +105,7 @@ function App() {
             }
             if (message.type === 'START_VOICE_CHAT') {
                 setMode('VOICE_CHAT');
-                startVoiceSession(message.plan);
+                startVoiceSession(message.tabs);
             }
         });
 
@@ -107,7 +117,7 @@ function App() {
         }
     }, []);
 
-    const startVoiceSession = async (plan: string) => {
+    const startVoiceSession = async (tabs: any[]) => {
         setVoiceStatus("Fetching Key...");
         try {
             // Get Key
@@ -155,14 +165,16 @@ function App() {
                         input_audio_transcription: {},
                         output_audio_transcription: {},
                         tools: [{ googleSearch: {} }],
-                        system_instruction: { parts: [{ text: "You are the user's creative partner. Use the following synthesis to guide them. Talk to them about their open tabs. Keep responses concise. If you don't know something, such as current news or sports scores, use your search tool." }] }
+                        system_instruction: { parts: [{ text: "You are the user's intelligent browser assistant. You have direct access to the user's open tabs. Use this context to help them complete tasks, answer questions, and synthesize information. Be direct, helpful, and concise." }] }
                     }
                 }));
 
-                // Initial Plan INJECTION
+                // Initial Context INJECTION (Raw Tabs)
+                const tabContext = tabs.map((t: any, i: number) => `Tab ${i + 1}: [${t.title}](${t.url})\nContent Summary: ${t.content.substring(0, 500)}...`).join("\n\n");
+
                 socket.send(JSON.stringify({
                     client_content: {
-                        turns: [{ role: "user", parts: [{ text: `Here is the plan from my Chief of Staff based on my open tabs: ${plan}` }] }],
+                        turns: [{ role: "user", parts: [{ text: `Here is the raw content of my open tabs. Use this to help me:\n\n${tabContext}` }] }],
                         turn_complete: true
                     }
                 }));

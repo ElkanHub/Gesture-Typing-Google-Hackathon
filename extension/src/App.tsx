@@ -104,6 +104,15 @@ function App() {
             setVoiceStatus("Connecting to Gemini Live...");
 
             // Connect
+            // Prevent double connection (React Strict Mode fix)
+            if (socketRef.current && socketRef.current.readyState !== WebSocket.CLOSED) {
+                console.log("Socket already open, skipping init");
+                return;
+            }
+            if (socketRef.current) {
+                socketRef.current.close();
+            }
+
             const url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
             const socket = new WebSocket(`${url}?key=${API_KEY}`);
             socketRef.current = socket;

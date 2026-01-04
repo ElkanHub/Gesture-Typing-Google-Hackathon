@@ -158,6 +158,9 @@ async function handleAgentAction(action: string, text: string, tabId?: number) {
             console.log("Generating Audio via Gemini...");
             const style = action === 'READ' ? "Read this carefully like a professional narrator" : "Summarize this in a helpful, concise assistant voice";
 
+            // Notify UI: Generating
+            chrome.runtime.sendMessage({ type: 'AUDIO_STATUS', status: 'generating' }).catch(() => { });
+
             fetch('http://localhost:3000/api/read-aloud', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -170,7 +173,11 @@ async function handleAgentAction(action: string, text: string, tabId?: number) {
                         chrome.tabs.sendMessage(tabId, { type: 'PLAY_AUDIO', audio: ttsData.audio }).catch(err => console.warn("Could not play audio:", err));
                     }
                 })
-                .catch(err => console.error("TTS Gen Failed:", err));
+                .catch(err => console.error("TTS Gen Failed:", err))
+                .finally(() => {
+                    // Notify UI: Done (Success or Error)
+                    chrome.runtime.sendMessage({ type: 'AUDIO_STATUS', status: 'complete' }).catch(() => { });
+                });
         }
 
     } catch (e) {

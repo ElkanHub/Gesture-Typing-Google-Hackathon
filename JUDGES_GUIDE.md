@@ -1,6 +1,6 @@
 # 🏆 Hackathon Judges Code
 
-**Welcome!** This project is a **Universal Gesture Typing Agent** that brings physical keyboard swiping to the desktop web.
+**Welcome!** This project is a **Prototype Gesture Typing Agent** that brings physical keyboard swiping to the desktop web.
 
 It consists of two parts in this monorepo:
 1.  **The Brain (Next.js)**: Runs the 6-Layer Prediction Engine and AI logic (`/app`).
@@ -14,6 +14,10 @@ To see the project in action, you need to run **both**.
 
 ### 1. Start the Brain (Main App)
 First, get the AI engine running locally (API endpoints).
+
+Since this is a MonoRepo, you need to install dependencies for the entire repo.
+
+Clone the repo to your local machine.
 
 ```bash
 # In the root directory
@@ -44,11 +48,19 @@ npm run build
 
 1.  **Open any website** (e.g., Google, Twitter, or a Notepad tab).
 2.  **Refresh the page** (important so the content script loads).
-3.  **Click into a text input**.
-4.  **Perform a Gesture**: On your physical keyboard, press valid keys in sequence (e.g., Q-U-I-C-K) without lifting/pausing too long, or just type normally.
+3.  **Click into a text input**. You will see the dot at the bottom right coener turn green which means the extension is active and in typing mode.
+4.  **Perform a Gesture**: On your physical keyboard, press valid keys in sequence (e.g., T-H-E) without lifting/pausing too long, or just type normally.GLide from letter to letter like it is done on mobile.
+
 5.  **See the Magic**:
-    *   A **Glassmorphism Suggestion Bar** will appear near your cursor.
+    *   A **Suggestion Bar** will appear near your cursor.
     *   It shows **6 candidates** (Strict Match + AI Backfill).
     *   **Tab** or click to select a word.
 
-**Enjoy the future of typing!** ⌨️✨
+6.  **The AI Agent**:
+    To see the AI Agent in action, click out side the textbox or any empty area on the browser, you will see the green dot on the bottom right corner turn gray.
+
+    Now, glide your fingers in a straight line across the keyboard:
+    *   From Left to Right: This will open the sidepanel and will trigger the Agent to summarize the current page.
+    *   From Right to Left: This will open the sidepanel and will trigger the Agent to readout what is on the screen using gemini.
+    *   Draw a triangle on the keyboard: This will wake the Live voice agent and gather all info from open tabs as context and ready to assist you.
+

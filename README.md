@@ -12,6 +12,7 @@ The **Headless Gesture Typing Engine** is a web-based prototype that brings the 
 Instead of typing every letter, users can slide their fingers across the keys. The engine interprets the noisy key stream using a multi-layered approach involving geometric analysis, local pattern matching, and **Google Gemini 3.0** for context-aware prediction.
 
 ## Public Preview Link.
+### Preview Slides at the bottom of this page. \/
 
  **https://gesture-typing-google-hackathon.vercel.app/**
 
@@ -142,5 +143,24 @@ The project includes a companion Chrome Extension that extends the gesture capab
 For a complete technical breakdown of the extension's architecture, see [APPDOC3.md](./APPDOC3.md).
 
 ---
+
+## 📚 Slides
+<!-- 11slides -->
+![Slides](/extension/public/1.jpg)
+![Slides](/extension/public/2.jpg)
+![Slides](/extension/public/3.jpg)
+![Slides](/extension/public/4.jpg)
+![Slides](/extension/public/5.jpg)
+![Slides](/extension/public/6.jpg)
+![Slides](/extension/public/7.jpg)
+![Slides](/extension/public/8.jpg)
+![Slides](/extension/public/9.jpg)
+![Slides](/extension/public/10.jpg)
+![Slides](/extension/public/11.jpg)
+![Slides](/extension/public/fit.jpg)
+
+
+
+
 
 **Enjoy the future of typing!** ⌨️✨

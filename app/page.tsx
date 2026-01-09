@@ -27,6 +27,11 @@ async function getDocContent() {
     docs.push({ title: 'Innovation & Strategy', content });
   } catch (e) { }
 
+  try {
+    const content = await fs.promises.readFile(path.join(process.cwd(), 'APPDOC3.md'), 'utf8');
+    docs.push({ title: 'Extension Documentation', content });
+  } catch (e) { }
+
   return docs;
 }
 

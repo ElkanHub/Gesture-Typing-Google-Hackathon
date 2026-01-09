@@ -74,7 +74,7 @@ The input processing pipeline is divided into distinct layers, moving from raw s
 
 ### **Layer 6: AI Inference (The Semantic Brain)**
 *   **File**: `app/api/predict/route.ts`
-*   **Model**: Gemini 1.5 Flash
+*   **Model**: gemini-3-flash-preview
 *   **Purpose**: Final disambiguation using context.
 *   **Logic**: Chooses the best word from the candidate list that fits the previous sentence context.
 
